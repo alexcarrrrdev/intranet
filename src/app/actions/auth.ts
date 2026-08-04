@@ -60,7 +60,7 @@ export async function loginAction(values: LoginInput): Promise<ActionResult> {
     return { error: "Courriel ou mot de passe invalide." }
   }
 
-  redirect("/tableau-de-bord")
+  redirect("/fil")
 }
 
 export async function forgotPasswordAction(

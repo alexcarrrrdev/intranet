@@ -37,6 +37,8 @@ export const AUDIT_ACTIONS = {
   "auth.password.change": "Changement de mot de passe",
   "auth.password.reset": "Réinitialisation de mot de passe",
   "profile.name.update": "Modification du nom (profil)",
+  "profile.avatar.update": "Modification de la photo de profil",
+  "profile.avatar.delete": "Retrait de la photo de profil",
   "session.revoke": "Révocation d'une session",
   "session.revoke_others": "Révocation des autres sessions",
   "announcement.create": "Création d'une annonce",

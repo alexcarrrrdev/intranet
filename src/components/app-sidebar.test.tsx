@@ -39,10 +39,10 @@ describe("AppSidebar", () => {
     expect(screen.getByText("Mon Application")).toBeInTheDocument()
   })
 
-  it("affiche toujours le lien Tableau de bord", () => {
+  it("affiche toujours le lien Fil d'actualités", () => {
     renderSidebar([])
 
-    expect(screen.getByText("Tableau de bord")).toBeInTheDocument()
+    expect(screen.getByText("Fil d'actualités")).toBeInTheDocument()
   })
 
   it("affiche le groupe Administration quand la permission settings:update est accordée", () => {

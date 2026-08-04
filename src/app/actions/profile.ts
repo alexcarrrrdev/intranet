@@ -8,6 +8,8 @@ import { auth } from "@/lib/auth"
 import { db } from "@/db"
 import { session as sessionTable } from "@/db/schema"
 import { recordAudit, resolveActorLabel } from "@/lib/audit/audit"
+import { clearAvatar, setAvatar } from "@/lib/auth/avatar"
+import { validateAvatarFile } from "@/lib/settings/avatar-validation"
 import {
   changePasswordSchema,
   updateNameSchema,
@@ -112,6 +114,65 @@ export async function changePasswordAction(
     targetLabel: actorLabel,
     details: { revokedOtherSessions: true },
   })
+
+  return {}
+}
+
+// Server Action d'upload de la photo de profil, même patron que
+// uploadLogoAction (src/app/actions/app-settings.ts) : FormData plutôt qu'un
+// objet Zod typé (façon standard d'envoyer un fichier à une Server Action,
+// voir node_modules/next/dist/docs/01-app/02-guides/server-actions.md), et
+// validation déléguée à validateAvatarFile (src/lib/settings/
+// avatar-validation.ts), testée indépendamment.
+//
+// Contrairement à updateAppSettingsAction, AUCUNE permission particulière
+// n'est requise ici au-delà d'être connecté : un utilisateur ne modifie
+// jamais que SA PROPRE photo (`currentSession.user.id`, jamais un
+// identifiant reçu du client) — voir setAvatar dans src/lib/auth/avatar.ts.
+export async function updateAvatarAction(formData: FormData): Promise<ActionResult> {
+  const currentSession = await auth.api.getSession({ headers: await headers() })
+  if (!currentSession) {
+    return { error: "Vous devez être connecté pour effectuer cette action." }
+  }
+
+  const file = formData.get("avatar")
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Aucun fichier n'a été sélectionné." }
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const validation = validateAvatarFile(bytes, file.type)
+  if (!validation.valid) {
+    return { error: validation.error }
+  }
+
+  try {
+    await setAvatar(
+      currentSession.user.id,
+      currentSession.user.id,
+      Buffer.from(bytes),
+      file.type,
+    )
+  } catch {
+    return { error: "Une erreur est survenue lors de l'enregistrement de la photo." }
+  }
+
+  return {}
+}
+
+// Server Action de retrait de la photo de profil : l'application retombe
+// sur les initiales (voir getInitials dans src/components/nav-user.tsx).
+export async function removeAvatarAction(): Promise<ActionResult> {
+  const currentSession = await auth.api.getSession({ headers: await headers() })
+  if (!currentSession) {
+    return { error: "Vous devez être connecté pour effectuer cette action." }
+  }
+
+  try {
+    await clearAvatar(currentSession.user.id, currentSession.user.id)
+  } catch {
+    return { error: "Une erreur est survenue lors du retrait de la photo." }
+  }
 
   return {}
 }

@@ -19,6 +19,9 @@ export type EventListItem = {
   startsAt: Date
   endsAt: Date | null
   allDay: boolean
+  // Date de création de l'événement (distincte de `startsAt`) — utilisée par
+  // le tri du fil unifié (/fil), voir src/lib/feed/merge-feed-items.ts.
+  createdAt: Date
 }
 
 /**
@@ -39,6 +42,7 @@ export async function listUpcomingEvents(): Promise<EventListItem[]> {
       startsAt: event.startsAt,
       endsAt: event.endsAt,
       allDay: event.allDay,
+      createdAt: event.createdAt,
     })
     .from(event)
     .where(gte(event.startsAt, startOfToday))
@@ -63,6 +67,7 @@ export async function listPastEvents(): Promise<EventListItem[]> {
       startsAt: event.startsAt,
       endsAt: event.endsAt,
       allDay: event.allDay,
+      createdAt: event.createdAt,
     })
     .from(event)
     .where(lt(event.startsAt, startOfToday))

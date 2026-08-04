@@ -132,6 +132,22 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Par défaut, une Server Action refuse tout corps de requête au-delà
+      // de 1 Mo (voir node_modules/next/dist/docs/01-app/03-api-reference/
+      // 05-config/01-next-config-js/serverActions.md, section
+      // `bodySizeLimit`) — trop peu pour updateAvatarAction
+      // (src/app/actions/profile.ts), qui accepte des photos de profil
+      // jusqu'à 10 Mo (voir MAX_AVATAR_SIZE_BYTES dans
+      // src/lib/settings/avatar-validation.ts). Relevé à 11 Mo pour laisser
+      // une marge à l'encodage multipart/form-data du FormData transmis par
+      // le formulaire, sans quoi un fichier tout juste sous la limite
+      // applicative pourrait être rejeté par Next.js avant même d'atteindre
+      // la validation métier.
+      bodySizeLimit: "11mb",
+    },
+  },
   async headers() {
     return [
       {

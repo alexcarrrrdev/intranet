@@ -98,6 +98,18 @@ export const user = pgTable("user", {
     .default("member")
     .notNull()
     .references(() => role.id, { onDelete: "restrict" }),
+  // Photo de profil personnalisée (facultative) : octets bruts de l'image +
+  // type MIME déclaré à l'upload, même patron que `appSettings.logo`/
+  // `logoMimeType` ci-dessus (voir aussi la validation dans
+  // src/lib/settings/avatar-validation.ts, plafonnée à 10 Mo — plus
+  // permissive que le logo car téléversée par chaque utilisateur, pas
+  // seulement un administrateur). Les deux colonnes sont NULL tant qu'aucune
+  // photo n'a été téléversée, ou de nouveau après un retrait — `image`
+  // ci-dessus retombe alors sur `null` et l'application affiche les
+  // initiales (voir src/components/nav-user.tsx, getInitials). Servies par
+  // src/app/avatar/[userId]/route.ts, jamais lues directement ailleurs.
+  avatar: bytea("avatar"),
+  avatarMimeType: text("avatar_mime_type"),
   // Suppression douce (soft delete) : NULL tant que le compte est actif, ou
   // la date de suppression sinon (voir src/lib/auth/users.ts, `deleteUser`).
   // La rangée reste en base — ses sessions sont supprimées explicitement au

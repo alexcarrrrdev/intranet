@@ -22,7 +22,7 @@ export default async function ConnexionPage() {
   const session = await getCurrentSession()
 
   if (session) {
-    redirect("/tableau-de-bord")
+    redirect("/fil")
   }
 
   return (

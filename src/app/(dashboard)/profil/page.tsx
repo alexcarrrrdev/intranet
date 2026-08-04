@@ -9,6 +9,7 @@ import {
   ActiveSessionsCard,
   type SessionSummary,
 } from "@/components/profile/active-sessions-card"
+import { AvatarUploadForm } from "@/components/profile/avatar-upload-form"
 import { ChangePasswordForm } from "@/components/profile/change-password-form"
 import { ProfileNameForm } from "@/components/profile/profile-name-form"
 import {
@@ -60,6 +61,23 @@ export default async function ProfilPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Photo de profil</CardTitle>
+          <CardDescription>
+            Affichée dans le fil, l&apos;annuaire et partout où votre nom
+            apparaît.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AvatarUploadForm
+            name={session.user.name}
+            email={session.user.email}
+            image={session.user.image ?? null}
+          />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Mes informations</CardTitle>

@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation"
 
 // Titres exacts (routes sans segment dynamique), vérifiés en premier.
 const exactTitles: Record<string, string> = {
-  "/tableau-de-bord": "Tableau de bord",
   "/profil": "Profil",
   "/parametres": "Paramètres",
   "/fil": "Fil d'actualités",

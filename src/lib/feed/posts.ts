@@ -4,11 +4,12 @@
  * ci-dessous signifie « fil général ».
  */
 import { randomUUID } from "node:crypto"
-import { and, desc, eq, inArray, isNull } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm"
 
 import { db } from "@/db"
 import {
   groupMember,
+  intranetGroup,
   pollOption,
   pollVote,
   post,
@@ -31,6 +32,8 @@ export type FeedPollOption = {
   voteCount: number
 }
 
+export type FeedGroupRef = { id: string; name: string }
+
 export type FeedPost = {
   id: string
   type: "message" | "kudos" | "poll"
@@ -44,16 +47,30 @@ export type FeedPost = {
   pollOptions: FeedPollOption[]
   pollTotalVotes: number
   myPollOptionId: string | null
+  // Groupe d'origine du post, uniquement renseigné dans le fil général
+  // (`groupId: null` passé à listFeedPosts) pour un post provenant d'un
+  // groupe dont l'utilisateur est membre — voir listFeedPosts ci-dessous.
+  // Toujours `null` en mode fil de groupe (`groupId` fourni).
+  group: FeedGroupRef | null
 }
 
 const NO_AUTHOR: FeedAuthor = { id: "", name: "Utilisateur inconnu", image: null }
 
 /**
- * Charge une page du fil (général si `groupId` est `null`, sinon celui du
- * groupe), triée du plus récent au plus ancien, avec toutes les données
- * d'affichage agrégées en quelques requêtes seulement (pas une par post) :
- * comptes de réactions/commentaires groupés par post, options + comptes de
- * vote des sondages, et la réaction/le vote propres à `currentUserId`.
+ * Charge une page du fil, triée du plus récent au plus ancien, avec toutes
+ * les données d'affichage agrégées en quelques requêtes seulement (pas une
+ * par post) : comptes de réactions/commentaires groupés par post, options +
+ * comptes de vote des sondages, et la réaction/le vote propres à
+ * `currentUserId`.
+ *
+ * Deux modes :
+ * - `groupId` fourni : fil d'un groupe précis (/groupes/[id]), inchangé —
+ *   `group` vaut toujours `null` sur les posts retournés.
+ * - `groupId: null` : fil général UNIFIÉ (/fil) — retourne les posts sans
+ *   groupe ET les posts des groupes dont `currentUserId` est membre (un seul
+ *   `inArray` sur les appartenances, pas de requête par post), avec `group`
+ *   renseigné pour ces derniers afin que l'UI puisse afficher « dans
+ *   {groupe} ».
  */
 export async function listFeedPosts(params: {
   groupId: string | null
@@ -62,6 +79,19 @@ export async function listFeedPosts(params: {
   offset: number
 }): Promise<FeedPost[]> {
   const { groupId, currentUserId, limit, offset } = params
+
+  let whereClause = groupId ? eq(post.groupId, groupId) : isNull(post.groupId)
+
+  if (!groupId) {
+    const memberships = await db
+      .select({ groupId: groupMember.groupId })
+      .from(groupMember)
+      .where(eq(groupMember.userId, currentUserId))
+    const memberGroupIds = memberships.map((row) => row.groupId)
+    if (memberGroupIds.length > 0) {
+      whereClause = or(isNull(post.groupId), inArray(post.groupId, memberGroupIds))!
+    }
+  }
 
   const rows = await db
     .select({
@@ -73,10 +103,13 @@ export async function listFeedPosts(params: {
       authorName: user.name,
       authorImage: user.image,
       kudosRecipientId: post.kudosRecipientId,
+      groupId: post.groupId,
+      groupName: intranetGroup.name,
     })
     .from(post)
     .innerJoin(user, eq(post.authorId, user.id))
-    .where(groupId ? eq(post.groupId, groupId) : isNull(post.groupId))
+    .leftJoin(intranetGroup, eq(post.groupId, intranetGroup.id))
+    .where(whereClause)
     .orderBy(desc(post.createdAt))
     .limit(limit)
     .offset(offset)
@@ -180,6 +213,7 @@ export async function listFeedPosts(params: {
       pollOptions: options,
       pollTotalVotes: options.reduce((sum, option) => sum + option.voteCount, 0),
       myPollOptionId: myVoteByPost.get(row.id) ?? null,
+      group: !groupId && row.groupId && row.groupName ? { id: row.groupId, name: row.groupName } : null,
     }
   })
 }

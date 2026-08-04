@@ -7,7 +7,6 @@ import {
   BookUser,
   CalendarDays,
   ChevronRightIcon,
-  LayoutDashboard,
   Megaphone,
   Newspaper,
   Settings2Icon,
@@ -72,7 +71,6 @@ type NavItem = {
 // Navigation principale du back-office. Ajouter une entrée de premier
 // niveau ici suffit à l'afficher dans la barre latérale.
 const navItems: NavItem[] = [
-  { title: "Tableau de bord", href: "/tableau-de-bord", icon: LayoutDashboard },
   // Modules sociaux de l'intranet : visibles par tout utilisateur connecté
   // (pas de `requiredPermission`) — la gestion (créer une annonce, un
   // événement, un groupe, modérer le fil) reste protégée côté page/action par
@@ -169,7 +167,7 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/tableau-de-bord" />}>
+            <SidebarMenuButton size="lg" render={<Link href="/fil" />}>
               <BrandMark hasLogo={hasLogo} logoVersion={logoVersion} className="size-8" />
               <span className="truncate text-sm font-semibold">{appName}</span>
             </SidebarMenuButton>

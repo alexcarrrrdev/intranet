@@ -29,6 +29,7 @@ const basePost: FeedPost = {
   pollOptions: [],
   pollTotalVotes: 0,
   myPollOptionId: null,
+  group: null,
 }
 
 describe("PostCard", () => {

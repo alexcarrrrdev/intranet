@@ -130,20 +130,20 @@ export function FeedComposer({ groupId, currentUser, employees, onPosted }: Feed
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 pt-4">
-        <div className="flex gap-1 border-b pb-2">
+        <div className="inline-flex w-fit items-center gap-0.5 rounded-lg bg-muted p-1">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => handleTabChange(id)}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 tab === id
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="size-4" />
+              <Icon className={cn("size-4", tab === id && "text-primary")} />
               {label}
             </button>
           ))}
@@ -183,7 +183,7 @@ export function FeedComposer({ groupId, currentUser, employees, onPosted }: Feed
                     ? "Décrivez le bon coup…"
                     : "Posez votre question…"
               }
-              className="min-h-20"
+              className="min-h-20 resize-none border-none bg-muted/50 shadow-none focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-primary/30"
             />
 
             {tab === "poll" && (
@@ -197,7 +197,7 @@ export function FeedComposer({ groupId, currentUser, employees, onPosted }: Feed
                         next[index] = event.target.value
                         setOptions(next)
                       }}
-                      placeholder={`Option ${index + 1}`}
+                      placeholder={`Choix ${index + 1}`}
                     />
                     {options.length > 2 && (
                       <Button

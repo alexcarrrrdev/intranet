@@ -1,7 +1,16 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { AwardIcon, MessageCircleIcon, MoreHorizontalIcon, SendIcon } from "lucide-react"
+import Link from "next/link"
+import {
+  AwardIcon,
+  CheckCircle2Icon,
+  CircleIcon,
+  MessageCircleIcon,
+  MoreHorizontalIcon,
+  SendIcon,
+  SmilePlusIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -22,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import { formatRelativeTime } from "@/lib/dates"
 import { REACTION_EMOJIS } from "@/lib/feed/schemas"
@@ -161,7 +171,7 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
   }
 
   return (
-    <Card className={cn(post.type === "kudos" && "border-primary/40 bg-primary/5")}>
+    <Card className={cn(post.type === "kudos" && "border-primary/25 bg-primary/[0.04]")}>
       <CardContent className="flex flex-col gap-3 pt-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-3">
@@ -169,7 +179,6 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
             <div>
               {post.type === "kudos" && post.kudosRecipient ? (
                 <p className="flex flex-wrap items-center gap-1.5 text-sm">
-                  <AwardIcon className="size-4 text-primary" />
                   <span className="font-medium">{post.author.name}</span>
                   <span className="text-muted-foreground">félicite</span>
                   <span className="font-medium">{post.kudosRecipient.name}</span>
@@ -177,9 +186,26 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
               ) : (
                 <p className="text-sm font-medium">{post.author.name}</p>
               )}
-              <p className="text-xs text-muted-foreground">{formatRelativeTime(post.createdAt)}</p>
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                {formatRelativeTime(post.createdAt)}
+                {post.group && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <Link href={`/groupes/${post.group.id}`} className="hover:text-primary hover:underline">
+                      dans {post.group.name}
+                    </Link>
+                  </>
+                )}
+              </p>
             </div>
           </div>
+          <div className="flex items-center gap-1">
+            {post.type === "kudos" && (
+              <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                <AwardIcon className="size-3.5" />
+                Bon coup
+              </span>
+            )}
           {canDelete && (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -196,9 +222,10 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          </div>
         </div>
 
-        <p className="text-sm whitespace-pre-wrap">{post.body}</p>
+        <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{post.body}</p>
 
         {post.type === "poll" && (
           <div className="flex flex-col gap-2">
@@ -212,19 +239,25 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
                     key={option.id}
                     type="button"
                     onClick={() => handleVote(option.id)}
-                    className="group relative overflow-hidden rounded-lg border text-left"
+                    className={cn(
+                      "group relative overflow-hidden rounded-lg border text-left transition-colors",
+                      isMine ? "border-primary/50" : "hover:border-primary/30",
+                    )}
                   >
                     <div
                       className={cn(
-                        "absolute inset-y-0 left-0 bg-primary/15 transition-[width]",
-                        isMine && "bg-primary/25",
+                        "absolute inset-y-0 left-0 bg-primary/10 transition-[width] duration-500",
+                        isMine && "bg-primary/20",
                       )}
                       style={{ width: `${percentage}%` }}
                     />
-                    <div className="relative flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                      <span className={cn(isMine && "font-medium")}>{option.label}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {percentage}% · {option.voteCount}
+                    <div className="relative flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
+                      <span className="flex items-center gap-2">
+                        {isMine && <CheckCircle2Icon className="size-4 shrink-0 text-primary" />}
+                        <span className={cn(isMine && "font-medium")}>{option.label}</span>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-muted-foreground tabular-nums">
+                        {percentage} %
                       </span>
                     </div>
                   </button>
@@ -235,9 +268,10 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
                   key={option.id}
                   type="button"
                   variant="outline"
-                  className="justify-start"
+                  className="group justify-start gap-2 hover:border-primary/40 hover:bg-primary/5"
                   onClick={() => handleVote(option.id)}
                 >
+                  <CircleIcon className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
                   {option.label}
                 </Button>
               )
@@ -248,26 +282,58 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-1 border-t pt-2">
-          {REACTION_EMOJIS.map((emoji) => {
-            const count = reactions.find((r) => r.emoji === emoji)?.count ?? 0
-            return (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => handleReaction(emoji)}
-                className={cn(
-                  "flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
-                  myReaction === emoji
-                    ? "border-primary bg-primary/10"
-                    : "border-transparent hover:bg-muted",
-                )}
-              >
-                <span>{emoji}</span>
-                {count > 0 && <span className="text-muted-foreground">{count}</span>}
-              </button>
-            )
-          })}
+        <div className="flex flex-wrap items-center gap-1.5 border-t pt-2.5">
+          {reactions.map((reaction) => (
+            <button
+              key={reaction.emoji}
+              type="button"
+              onClick={() => handleReaction(reaction.emoji)}
+              className={cn(
+                "flex h-7 items-center gap-1 rounded-full border px-2.5 text-sm transition-colors",
+                myReaction === reaction.emoji
+                  ? "border-primary/50 bg-primary/10"
+                  : "border-border bg-muted/40 hover:bg-muted",
+              )}
+            >
+              <span className="text-[15px] leading-none">{reaction.emoji}</span>
+              <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                {reaction.count}
+              </span>
+            </button>
+          ))}
+
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="size-7 rounded-full p-0 text-muted-foreground"
+                  aria-label="Réagir"
+                >
+                  <SmilePlusIcon className="size-4" />
+                </Button>
+              }
+            />
+            <PopoverContent align="start" className="w-auto p-1.5">
+              <div className="flex gap-0.5">
+                {REACTION_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => handleReaction(emoji)}
+                    className={cn(
+                      "flex size-9 items-center justify-center rounded-md text-lg transition-transform hover:scale-125 hover:bg-muted",
+                      myReaction === emoji && "bg-primary/10",
+                    )}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <Button
             type="button"
