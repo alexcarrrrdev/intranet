@@ -1,0 +1,6 @@
+# Fichiers générés : GitHub les replie par défaut dans les diffs de PR
+# (linguist-generated) — la revue se concentre sur les fichiers écrits à la
+# main. Les migrations SQL (drizzle/*.sql) ne sont PAS marquées : ce sont
+# précisément les fichiers à relire pour tout changement de base de données.
+drizzle/meta/** linguist-generated=true
+package-lock.json linguist-generated=true
