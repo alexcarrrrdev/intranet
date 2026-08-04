@@ -8,7 +8,7 @@ import { recordAudit, resolveActorLabel } from "@/lib/audit/audit"
 
 // Nom de l'application par défaut, utilisé tant qu'aucun administrateur n'a
 // enregistré de nom personnalisé (voir /administration/general).
-export const DEFAULT_APP_NAME = "Admin Template"
+export const DEFAULT_APP_NAME = "Intranet"
 
 // Identifiant fixe de l'unique rangée de app_settings : garantit qu'il ne
 // peut jamais en exister plus d'une (voir src/db/schema.ts).

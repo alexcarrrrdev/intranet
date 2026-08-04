@@ -1,4 +1,4 @@
-import { ShieldCheck } from "lucide-react"
+import { Network } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -17,7 +17,7 @@ type BrandMarkProps = {
 // Icône affichée dans l'en-tête de la barre latérale (src/components/app-sidebar.tsx)
 // et au-dessus des pages publiques (src/components/brand-header.tsx) : le
 // logo personnalisé s'il existe, sinon un repli par défaut (icône
-// ShieldCheck dans un carré). Composant partagé pour garder l'apparence
+// Network dans un carré). Composant partagé pour garder l'apparence
 // identique aux deux endroits, et réutilisable tel quel depuis un composant
 // serveur (BrandHeader) ou client (AppSidebar) : il ne dépend d'aucun hook
 // ni API navigateur.
@@ -50,7 +50,7 @@ export function BrandMark({
           className="size-full object-contain"
         />
       ) : (
-        <ShieldCheck className={cn("size-4", iconClassName)} />
+        <Network className={cn("size-4", iconClassName)} />
       )}
     </div>
   )

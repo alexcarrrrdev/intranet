@@ -33,6 +33,6 @@ export const config = {
      * Toute nouvelle page ajoutée sous (dashboard) est donc protégée par
      * défaut, sans avoir à modifier ce matcher.
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|logo|mot-de-passe-oublie|reinitialiser-mot-de-passe).+)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icon.svg|logo|mot-de-passe-oublie|reinitialiser-mot-de-passe).+)",
   ],
 };

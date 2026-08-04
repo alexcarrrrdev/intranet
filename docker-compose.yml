@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: admin_template
+      POSTGRES_DB: intranet
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -13,7 +13,7 @@ services:
       # (et non /var/lib/postgresql/data) — voir docker-library/postgres#1259
       - db_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d admin_template"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d intranet"]
       interval: 5s
       timeout: 5s
       retries: 5

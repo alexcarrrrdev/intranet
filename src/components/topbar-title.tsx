@@ -38,7 +38,7 @@ export function TopbarTitle() {
   const title =
     exactTitles[pathname] ??
     prefixTitles.find(([prefix]) => pathname.startsWith(prefix))?.[1] ??
-    "Admin Template"
+    "Intranet"
 
   return <h1 className="text-sm font-medium">{title}</h1>
 }
