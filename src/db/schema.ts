@@ -272,6 +272,318 @@ export const auditLog = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// Intranet social : groupes, publications (fil), annonces, événements.
+// Identifiants générés via `randomUUID()` (node:crypto) au moment de
+// l'insertion, comme pour `audit_log`/`rate_limit` ci-dessus — pas de valeur
+// par défaut SQL, la génération se fait en code (voir src/lib/*).
+// ---------------------------------------------------------------------------
+
+// Groupes ouverts (v1) : n'importe quel utilisateur connecté peut rejoindre
+// ou quitter librement (voir group_member ci-dessous) ; seule la création/
+// suppression/renommage du groupe lui-même est protégée par la permission
+// `group:manage` (voir src/lib/auth/permissions.ts). Suppression en cascade :
+// supprimer un groupe supprime ses membres et ses publications (voir les
+// références ci-dessous), aucune suppression douce n'est prévue ici.
+export const intranetGroup = pgTable("intranet_group", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Appartenance à un groupe : clé composite (groupId, userId), pas d'`id`
+// propre — l'unicité de la relation suffit, aucune ligne ne peut donc être
+// dupliquée pour un même couple utilisateur/groupe. `onDelete: "cascade"` des
+// deux côtés : supprimer le groupe OU l'utilisateur retire l'appartenance
+// sans intervention manuelle.
+export const groupMember = pgTable(
+  "group_member",
+  {
+    groupId: text("group_id")
+      .notNull()
+      .references(() => intranetGroup.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.groupId, table.userId] })],
+);
+
+// Publication du fil : message simple, bon coup ("kudos") ou sondage — le
+// contenu spécifique aux sondages vit dans poll_option/poll_vote ci-dessous,
+// `post` ne porte que ce qui est commun aux trois types. `groupId` NULL
+// signifie « fil général » (voir /fil) ; non-NULL signifie « fil du groupe »
+// (voir /groupes/[id]), les deux pages réutilisant les mêmes composants.
+// `kudosRecipientId` n'a de sens que pour type = "kudos" (validé côté
+// serveur, pas de contrainte SQL — cohérent avec l'approche du reste du
+// schéma, ex. `announcement`).
+export const post = pgTable(
+  "post",
+  {
+    id: text("id").primaryKey(),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    groupId: text("group_id").references(() => intranetGroup.id, {
+      onDelete: "cascade",
+    }),
+    // "message" | "kudos" | "poll" — texte plutôt qu'un enum Postgres pour
+    // rester cohérent avec le reste du schéma (ex. `role.id`), validé côté
+    // serveur (voir src/lib/*/schemas.ts).
+    type: text("type").notNull(),
+    body: text("body").notNull(),
+    kudosRecipientId: text("kudos_recipient_id").references(() => user.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    // Sert le chargement du fil (général ou de groupe), toujours trié du
+    // plus récent au plus ancien.
+    index("post_group_id_created_at_idx").on(table.groupId, table.createdAt),
+  ],
+);
+
+// Commentaire d'une publication. Cascade sur `postId` : supprimer un post
+// supprime ses commentaires (pas d'affichage de commentaires orphelins).
+export const postComment = pgTable(
+  "post_comment",
+  {
+    id: text("id").primaryKey(),
+    postId: text("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("post_comment_post_id_idx").on(table.postId)],
+);
+
+// Réaction à une publication : une seule par (post, utilisateur) — voter à
+// nouveau remplace la réaction existante plutôt que d'en ajouter une seconde
+// (voir la clé composite ci-dessous, pas d'`id` propre). `emoji` est un texte
+// libre en base, mais l'ensemble fermé de valeurs acceptées (👍 ❤️ 🎉 👏 😂)
+// est validé côté serveur (voir src/lib/fil/schemas.ts).
+export const postReaction = pgTable(
+  "post_reaction",
+  {
+    postId: text("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.postId, table.userId] })],
+);
+
+// Option d'un sondage (post de type "poll"), 2 à 5 par sondage (validé côté
+// serveur) — `position` fixe l'ordre d'affichage choisi à la création.
+export const pollOption = pgTable(
+  "poll_option",
+  {
+    id: text("id").primaryKey(),
+    postId: text("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    position: integer("position").notNull(),
+  },
+  (table) => [index("poll_option_post_id_idx").on(table.postId)],
+);
+
+// Vote à un sondage : un seul vote par utilisateur PAR SONDAGE (pas par
+// option), d'où la clé composite (postId, userId) plutôt que (optionId,
+// userId) — `optionId` n'est qu'une colonne ordinaire, ce qui rend un
+// changement de vote trivial (UPDATE de `optionId`, pas de DELETE/INSERT) et
+// interdit structurellement de voter deux fois pour le même sondage.
+export const pollVote = pgTable(
+  "poll_vote",
+  {
+    postId: text("post_id")
+      .notNull()
+      .references(() => post.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    optionId: text("option_id")
+      .notNull()
+      .references(() => pollOption.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.postId, table.userId] })],
+);
+
+// Annonce (/annonces) : `pinned` fait remonter l'annonce en tête de liste et
+// affiche le petit rappel en haut du fil général (voir /fil). Création/
+// épinglage/suppression protégés par `announcement:manage` (voir
+// src/lib/auth/permissions.ts) ; lecture ouverte à tout utilisateur connecté.
+export const announcement = pgTable("announcement", {
+  id: text("id").primaryKey(),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  pinned: boolean("pinned").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Marquage « lu » d'une annonce par utilisateur, explicite (bouton, pas
+// automatique à l'affichage — voir le plan produit) : clé composite, une
+// seule ligne par couple (annonce, utilisateur). Sert aussi le compteur
+// « Lue par X/Y » affiché aux détenteurs de `announcement:manage`.
+export const announcementRead = pgTable(
+  "announcement_read",
+  {
+    announcementId: text("announcement_id")
+      .notNull()
+      .references(() => announcement.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.announcementId, table.userId] })],
+);
+
+// Événement du calendrier (/calendrier, affiché en liste — voir le plan
+// produit). `endsAt` et `location`/`description` sont facultatifs ; `allDay`
+// indique un événement sans heure précise (affichage adapté côté UI).
+// Création/modification/suppression protégées par `event:manage`.
+export const event = pgTable(
+  "event",
+  {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    description: text("description"),
+    location: text("location"),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at"),
+    allDay: boolean("all_day").default(false).notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("event_starts_at_idx").on(table.startsAt)],
+);
+
+export const intranetGroupRelations = relations(intranetGroup, ({ many }) => ({
+  members: many(groupMember),
+  posts: many(post),
+}));
+
+export const groupMemberRelations = relations(groupMember, ({ one }) => ({
+  group: one(intranetGroup, {
+    fields: [groupMember.groupId],
+    references: [intranetGroup.id],
+  }),
+  user: one(user, {
+    fields: [groupMember.userId],
+    references: [user.id],
+  }),
+}));
+
+export const postRelations = relations(post, ({ one, many }) => ({
+  author: one(user, {
+    fields: [post.authorId],
+    references: [user.id],
+  }),
+  group: one(intranetGroup, {
+    fields: [post.groupId],
+    references: [intranetGroup.id],
+  }),
+  kudosRecipient: one(user, {
+    fields: [post.kudosRecipientId],
+    references: [user.id],
+  }),
+  comments: many(postComment),
+  reactions: many(postReaction),
+  pollOptions: many(pollOption),
+}));
+
+export const postCommentRelations = relations(postComment, ({ one }) => ({
+  post: one(post, {
+    fields: [postComment.postId],
+    references: [post.id],
+  }),
+  author: one(user, {
+    fields: [postComment.authorId],
+    references: [user.id],
+  }),
+}));
+
+export const postReactionRelations = relations(postReaction, ({ one }) => ({
+  post: one(post, {
+    fields: [postReaction.postId],
+    references: [post.id],
+  }),
+  user: one(user, {
+    fields: [postReaction.userId],
+    references: [user.id],
+  }),
+}));
+
+export const pollOptionRelations = relations(pollOption, ({ one, many }) => ({
+  post: one(post, {
+    fields: [pollOption.postId],
+    references: [post.id],
+  }),
+  votes: many(pollVote),
+}));
+
+export const pollVoteRelations = relations(pollVote, ({ one }) => ({
+  post: one(post, {
+    fields: [pollVote.postId],
+    references: [post.id],
+  }),
+  user: one(user, {
+    fields: [pollVote.userId],
+    references: [user.id],
+  }),
+  option: one(pollOption, {
+    fields: [pollVote.optionId],
+    references: [pollOption.id],
+  }),
+}));
+
+export const announcementRelations = relations(announcement, ({ one, many }) => ({
+  author: one(user, {
+    fields: [announcement.authorId],
+    references: [user.id],
+  }),
+  reads: many(announcementRead),
+}));
+
+export const announcementReadRelations = relations(announcementRead, ({ one }) => ({
+  announcement: one(announcement, {
+    fields: [announcementRead.announcementId],
+    references: [announcement.id],
+  }),
+  user: one(user, {
+    fields: [announcementRead.userId],
+    references: [user.id],
+  }),
+}));
+
+export const eventRelations = relations(event, ({ one }) => ({
+  createdByUser: one(user, {
+    fields: [event.createdBy],
+    references: [user.id],
+  }),
+}));
+
 export const userRelations = relations(user, ({ one, many }) => ({
   sessions: many(session),
   accounts: many(account),

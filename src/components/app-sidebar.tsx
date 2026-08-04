@@ -4,9 +4,14 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
+  BookUser,
+  CalendarDays,
   ChevronRightIcon,
   LayoutDashboard,
+  Megaphone,
+  Newspaper,
   Settings2Icon,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react"
 
@@ -68,6 +73,16 @@ type NavItem = {
 // niveau ici suffit à l'afficher dans la barre latérale.
 const navItems: NavItem[] = [
   { title: "Tableau de bord", href: "/tableau-de-bord", icon: LayoutDashboard },
+  // Modules sociaux de l'intranet : visibles par tout utilisateur connecté
+  // (pas de `requiredPermission`) — la gestion (créer une annonce, un
+  // événement, un groupe, modérer le fil) reste protégée côté page/action par
+  // les permissions dédiées (voir src/lib/auth/permissions.ts), mais la
+  // simple consultation de ces sections est ouverte à tous.
+  { title: "Fil d'actualités", href: "/fil", icon: Newspaper },
+  { title: "Annonces", href: "/annonces", icon: Megaphone },
+  { title: "Annuaire", href: "/annuaire", icon: BookUser },
+  { title: "Calendrier", href: "/calendrier", icon: CalendarDays },
+  { title: "Groupes", href: "/groupes", icon: UsersRound },
 ]
 
 // Groupe "Administration". Le groupe entier disparaît si aucune de ses

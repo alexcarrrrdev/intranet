@@ -9,6 +9,7 @@ import {
   requirePermission,
   resourceLabels,
   statement,
+  type PermissionString,
   type Resource,
 } from "@/lib/auth/permissions"
 
@@ -24,11 +25,24 @@ describe("statement", () => {
     // Garde-fou : si une ressource ou une action est ajoutée au catalogue
     // sans que ce test soit mis à jour, il échoue plutôt que de laisser une
     // nouvelle permission non couverte passer inaperçue.
-    expect(Object.keys(statement).sort()).toEqual(["audit", "role", "settings", "user"])
+    expect(Object.keys(statement).sort()).toEqual([
+      "announcement",
+      "audit",
+      "event",
+      "group",
+      "post",
+      "role",
+      "settings",
+      "user",
+    ])
     expect([...statement.user].sort()).toEqual(["create", "delete", "read", "update"])
     expect([...statement.settings].sort()).toEqual(["read", "update"])
     expect([...statement.role].sort()).toEqual(["create", "delete", "read", "update"])
     expect([...statement.audit].sort()).toEqual(["read"])
+    expect([...statement.post].sort()).toEqual(["delete-any"])
+    expect([...statement.announcement].sort()).toEqual(["manage"])
+    expect([...statement.event].sort()).toEqual(["manage"])
+    expect([...statement.group].sort()).toEqual(["manage"])
   })
 
   it("a un libellé français pour chaque ressource et chaque action du catalogue", () => {
@@ -45,10 +59,16 @@ describe("getAllPermissions", () => {
   it("retourne une chaîne 'resource:action' pour chaque entrée du catalogue", () => {
     const all = getAllPermissions()
 
+    // `statement[resource]` mélange ici les actions de TOUTES les
+    // ressources du point de vue de TypeScript (limite du typage généré à
+    // partir d'un objet const hétérogène) : la chaîne reconstituée est donc
+    // castée en `PermissionString` plutôt que vérifiée par le compilateur —
+    // le test lui-même vérifie que chaque combinaison réellement présente
+    // dans `statement` existe bien dans `getAllPermissions()`.
     let expectedSize = 0
     for (const resource of Object.keys(statement) as Resource[]) {
       for (const action of statement[resource]) {
-        expect(all.has(`${resource}:${action}`)).toBe(true)
+        expect(all.has(`${resource}:${action}` as PermissionString)).toBe(true)
         expectedSize++
       }
     }

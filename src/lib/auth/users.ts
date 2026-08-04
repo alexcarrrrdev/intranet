@@ -20,6 +20,7 @@ export type UserListItem = {
   id: string;
   name: string;
   email: string;
+  image: string | null;
   role: string;
   roleName: string;
   createdAt: Date;
@@ -39,6 +40,7 @@ export async function listUsers(): Promise<UserListItem[]> {
       id: user.id,
       name: user.name,
       email: user.email,
+      image: user.image,
       role: user.role,
       roleName: role.name,
       createdAt: user.createdAt,

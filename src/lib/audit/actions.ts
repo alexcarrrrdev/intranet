@@ -39,6 +39,14 @@ export const AUDIT_ACTIONS = {
   "profile.name.update": "Modification du nom (profil)",
   "session.revoke": "Révocation d'une session",
   "session.revoke_others": "Révocation des autres sessions",
+  "announcement.create": "Création d'une annonce",
+  "announcement.pin": "Épinglage d'une annonce",
+  "announcement.unpin": "Désépinglage d'une annonce",
+  "announcement.delete": "Suppression d'une annonce",
+  "event.create": "Création d'un événement",
+  "event.delete": "Suppression d'un événement",
+  "group.create": "Création d'un groupe",
+  "group.delete": "Suppression d'un groupe",
 } as const satisfies Record<string, string>
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS

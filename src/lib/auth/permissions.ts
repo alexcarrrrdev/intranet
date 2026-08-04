@@ -45,6 +45,21 @@ export const statement = {
   // (court-circuit ci-dessous) ; aucun autre rôle ne l'a par défaut, un
   // administrateur doit l'accorder explicitement depuis /administration/roles.
   audit: ["read"],
+  // Modération du fil (annonces exclues, voir plus bas) : supprimer la
+  // publication ou le commentaire D'AUTRUI. Créer/commenter/réagir/voter et
+  // supprimer SES PROPRES publications ne requièrent aucune permission —
+  // tout utilisateur connecté peut le faire (vérifié via l'auteur, pas via
+  // ce catalogue, voir src/app/actions/fil.ts).
+  post: ["delete-any"],
+  // Créer/épingler/désépingler/supprimer une annonce (/annonces). La
+  // lecture et le marquage « lu » sont ouverts à tout utilisateur connecté.
+  announcement: ["manage"],
+  // Créer/modifier/supprimer un événement du calendrier (/calendrier). La
+  // lecture est ouverte à tout utilisateur connecté.
+  event: ["manage"],
+  // Créer/renommer/supprimer un groupe (/groupes). Rejoindre/quitter un
+  // groupe est ouvert à tout utilisateur connecté (groupes ouverts, v1).
+  group: ["manage"],
 } as const;
 
 export type Resource = keyof typeof statement;
@@ -64,6 +79,10 @@ export const resourceLabels: Record<Resource, string> = {
   settings: "Paramètres",
   role: "Rôles",
   audit: "Journal d'audit",
+  post: "Publications",
+  announcement: "Annonces",
+  event: "Événements",
+  group: "Groupes",
 };
 
 export const actionLabels: Record<Action<Resource>, string> = {
@@ -71,6 +90,8 @@ export const actionLabels: Record<Action<Resource>, string> = {
   read: "Consulter",
   update: "Modifier",
   delete: "Supprimer",
+  "delete-any": "Supprimer celles des autres",
+  manage: "Gérer",
 };
 
 // Libellés de repli pour les deux rôles système, utilisés uniquement quand

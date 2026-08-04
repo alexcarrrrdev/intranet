@@ -7,6 +7,11 @@ const exactTitles: Record<string, string> = {
   "/tableau-de-bord": "Tableau de bord",
   "/profil": "Profil",
   "/parametres": "Paramètres",
+  "/fil": "Fil d'actualités",
+  "/annonces": "Annonces",
+  "/annuaire": "Annuaire",
+  "/calendrier": "Calendrier",
+  "/groupes": "Groupes",
   "/administration/utilisateurs": "Administration – Utilisateurs",
   "/administration/roles": "Administration – Rôles",
   "/administration/general": "Administration – Général",
@@ -31,6 +36,10 @@ const prefixTitles: [prefix: string, title: string][] = [
   ],
   ["/administration/roles/nouveau", "Administration – Nouveau rôle"],
   ["/administration/roles/", "Administration – Modifier le rôle"],
+  // /groupes/[id] : page de détail d'un groupe, garde le même titre que la
+  // liste — cohérent avec le fait que le fil du groupe réutilise les mêmes
+  // composants que /fil (voir le plan produit).
+  ["/groupes/", "Groupes"],
 ]
 
 export function TopbarTitle() {
