@@ -42,7 +42,7 @@ Le tout hérite du socle du template : **rôles et permissions dynamiques** (la 
 
 ```bash
 cp .env.example .env        # générer BETTER_AUTH_SECRET avec : openssl rand -base64 32
-docker compose up -d        # PostgreSQL local (port 5435 par défaut)
+docker compose up -d        # PostgreSQL local
 npm install
 npm run db:migrate
 npm run create-admin -- --name "Prénom Nom" --email vous@exemple.com --password "MotDePasse123!"
