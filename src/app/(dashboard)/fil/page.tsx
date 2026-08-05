@@ -180,7 +180,7 @@ function FilGeneralHeader({ name }: { name: string }) {
   const today = new Intl.DateTimeFormat("fr-CA", { dateStyle: "full" }).format(new Date())
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Bonjour {firstName} 👋</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Bonjour {firstName}</h1>
       <p className="text-sm text-muted-foreground first-letter:uppercase">{today}</p>
     </div>
   )
