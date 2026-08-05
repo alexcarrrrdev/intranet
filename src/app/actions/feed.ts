@@ -53,6 +53,21 @@ async function assertCanPostIn(groupId: string | null, userId: string): Promise<
   return null
 }
 
+// Même règle pour interagir (commenter, réagir, voter) avec un post de
+// groupe : l'UI n'affiche ces posts qu'aux membres, mais un identifiant de
+// post pourrait être rejoué directement contre l'action — on revérifie donc
+// la membership ici aussi, pas seulement à la création de post.
+async function assertCanInteractWith(
+  groupId: string | null,
+  userId: string,
+): Promise<string | null> {
+  if (!groupId) return null
+  if (!(await isGroupMember(groupId, userId))) {
+    return "Vous devez être membre de ce groupe pour interagir avec cette publication."
+  }
+  return null
+}
+
 export async function createMessagePostAction(
   values: unknown,
 ): Promise<ActionResult> {
@@ -204,6 +219,9 @@ export async function addCommentAction(
   const ownership = await getPostOwnership(parsed.data.postId)
   if (!ownership) return { error: "Cette publication n'existe plus." }
 
+  const memberError = await assertCanInteractWith(ownership.groupId, session.user.id)
+  if (memberError) return { error: memberError }
+
   let comment: FeedComment
   try {
     comment = await addComment({
@@ -231,6 +249,9 @@ export async function setReactionAction(values: unknown): Promise<ActionResult> 
 
   const ownership = await getPostOwnership(parsed.data.postId)
   if (!ownership) return { error: "Cette publication n'existe plus." }
+
+  const memberError = await assertCanInteractWith(ownership.groupId, session.user.id)
+  if (memberError) return { error: memberError }
 
   try {
     await setReaction({ postId: parsed.data.postId, userId: session.user.id, emoji: parsed.data.emoji })
@@ -268,6 +289,9 @@ export async function votePollAction(values: unknown): Promise<ActionResult> {
 
   const ownership = await getPostOwnership(parsed.data.postId)
   if (!ownership) return { error: "Ce sondage n'existe plus." }
+
+  const memberError = await assertCanInteractWith(ownership.groupId, session.user.id)
+  if (memberError) return { error: memberError }
 
   if (!(await optionBelongsToPost(parsed.data.optionId, parsed.data.postId))) {
     return { error: "Cette option n'appartient pas à ce sondage." }
