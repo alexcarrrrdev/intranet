@@ -291,12 +291,14 @@ export const auditLog = pgTable(
 // par défaut SQL, la génération se fait en code (voir src/lib/*).
 // ---------------------------------------------------------------------------
 
-// Groupes ouverts (v1) : n'importe quel utilisateur connecté peut rejoindre
-// ou quitter librement (voir group_member ci-dessous) ; seule la création/
+// Groupes sur invitation : rejoindre un groupe nécessite désormais une
+// invitation explicite d'un membre (voir group_invitation ci-dessous) ;
+// quitter reste libre (voir group_member ci-dessous). La création/
 // suppression/renommage du groupe lui-même est protégée par la permission
 // `group:manage` (voir src/lib/auth/permissions.ts). Suppression en cascade :
-// supprimer un groupe supprime ses membres et ses publications (voir les
-// références ci-dessous), aucune suppression douce n'est prévue ici.
+// supprimer un groupe supprime ses membres, ses invitations et ses
+// publications (voir les références ci-dessous), aucune suppression douce
+// n'est prévue ici.
 export const intranetGroup = pgTable("intranet_group", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -322,6 +324,32 @@ export const groupMember = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.groupId, table.userId] })],
+);
+
+// Invitation à rejoindre un groupe (modèle « sur invitation ») : clé
+// composite (groupId, userId), une seule invitation en attente par couple
+// groupe/utilisateur — accepter ou refuser supprime la ligne (voir
+// src/lib/groups/groups.ts, acceptInvitation/declineInvitation), elle ne
+// reste donc jamais après traitement. `invitedBy` garde une trace de qui a
+// invité (affiché dans le bandeau d'invitation, voir
+// src/components/groups/group-detail-header.tsx) ; `onDelete: "cascade"`
+// sur les trois références (groupe, invité, invitant) : supprimer l'un ou
+// l'autre retire l'invitation sans intervention manuelle.
+export const groupInvitation = pgTable(
+  "group_invitation",
+  {
+    groupId: text("group_id")
+      .notNull()
+      .references(() => intranetGroup.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    invitedBy: text("invited_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.groupId, table.userId] })],
 );
@@ -504,6 +532,7 @@ export const event = pgTable(
 
 export const intranetGroupRelations = relations(intranetGroup, ({ many }) => ({
   members: many(groupMember),
+  invitations: many(groupInvitation),
   posts: many(post),
 }));
 
@@ -517,6 +546,21 @@ export const groupMemberRelations = relations(groupMember, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+export const groupInvitationRelations = relations(groupInvitation, ({ one }) => ({
+  group: one(intranetGroup, {
+    fields: [groupInvitation.groupId],
+    references: [intranetGroup.id],
+  }),
+  user: one(user, {
+    fields: [groupInvitation.userId],
+    references: [user.id],
+  }),
+  invitedByUser: one(user, {
+    fields: [groupInvitation.invitedBy],
+    references: [user.id],
+  }),
+}))
 
 export const postRelations = relations(post, ({ one, many }) => ({
   author: one(user, {

@@ -5,8 +5,18 @@ import { refresh } from "next/cache"
 
 import { auth } from "@/lib/auth"
 import { hasPermission } from "@/lib/auth/permissions"
-import { createGroup, deleteGroup, joinGroup, leaveGroup } from "@/lib/groups/groups"
-import { createGroupSchema, groupIdSchema } from "@/lib/groups/schemas"
+import { getUser } from "@/lib/auth/users"
+import {
+  acceptInvitation,
+  createGroup,
+  declineInvitation,
+  deleteGroup,
+  hasInvitation,
+  inviteToGroup,
+  isGroupMember,
+  leaveGroup,
+} from "@/lib/groups/groups"
+import { createGroupSchema, groupIdSchema, inviteToGroupSchema } from "@/lib/groups/schemas"
 
 type ActionResult = { error?: string }
 
@@ -66,10 +76,79 @@ export async function deleteGroupAction(values: unknown): Promise<ActionResult> 
   return {}
 }
 
-// Rejoindre/quitter un groupe : ouvert à tout utilisateur connecté (groupes
-// ouverts, v1), pas de permission `group:manage` requise ici — voir le
-// commentaire de `groupMember` dans src/db/schema.ts.
-export async function joinGroupAction(values: unknown): Promise<ActionResult> {
+// Groupes sur invitation (v2) : on ne peut plus rejoindre librement — voir
+// le commentaire de `intranet_group` dans src/db/schema.ts. Rejoindre passe
+// désormais par acceptInvitationAction ci-dessous, toujours pour
+// soi-même.
+export async function inviteToGroupAction(values: unknown): Promise<ActionResult> {
+  const session = await requireSession()
+  if (!session) return { error: "Vous devez être connecté." }
+
+  const parsed = inviteToGroupSchema.safeParse(values)
+  if (!parsed.success) return { error: "Invitation invalide." }
+
+  const { groupId, userId } = parsed.data
+
+  // Réservé aux membres actuels du groupe, ou aux détenteurs de
+  // `group:manage` (ex. un administrateur qui n'est pas encore membre).
+  const canManage = await hasPermission(session.user, "group", "manage")
+  if (!canManage) {
+    const isMember = await isGroupMember(groupId, session.user.id)
+    if (!isMember) {
+      return { error: "Vous devez être membre de ce groupe pour y inviter quelqu'un." }
+    }
+  }
+
+  const invitee = await getUser(userId)
+  if (!invitee) {
+    return { error: "Cet utilisateur est introuvable ou inactif." }
+  }
+
+  const alreadyMember = await isGroupMember(groupId, userId)
+  if (alreadyMember) {
+    return { error: "Cette personne est déjà membre du groupe." }
+  }
+
+  const alreadyInvited = await hasInvitation(groupId, userId)
+  if (alreadyInvited) {
+    return { error: "Cette personne a déjà été invitée." }
+  }
+
+  try {
+    await inviteToGroup({ groupId, userId, invitedBy: session.user.id })
+  } catch {
+    return { error: "Une erreur est survenue lors de l'invitation." }
+  }
+
+  refresh()
+  return {}
+}
+
+/** Accepter une invitation en attente, toujours pour soi-même. */
+export async function acceptInvitationAction(values: unknown): Promise<ActionResult> {
+  const session = await requireSession()
+  if (!session) return { error: "Vous devez être connecté." }
+
+  const parsed = groupIdSchema.safeParse(values)
+  if (!parsed.success) return { error: "Groupe invalide." }
+
+  const invited = await hasInvitation(parsed.data.groupId, session.user.id)
+  if (!invited) {
+    return { error: "Aucune invitation en attente pour ce groupe." }
+  }
+
+  try {
+    await acceptInvitation(parsed.data.groupId, session.user.id)
+  } catch {
+    return { error: "Une erreur est survenue." }
+  }
+
+  refresh()
+  return {}
+}
+
+/** Refuser une invitation en attente, toujours pour soi-même. */
+export async function declineInvitationAction(values: unknown): Promise<ActionResult> {
   const session = await requireSession()
   if (!session) return { error: "Vous devez être connecté." }
 
@@ -77,7 +156,7 @@ export async function joinGroupAction(values: unknown): Promise<ActionResult> {
   if (!parsed.success) return { error: "Groupe invalide." }
 
   try {
-    await joinGroup(parsed.data.groupId, session.user.id)
+    await declineInvitation(parsed.data.groupId, session.user.id)
   } catch {
     return { error: "Une erreur est survenue." }
   }

@@ -57,8 +57,10 @@ export const statement = {
   // Créer/modifier/supprimer un événement du calendrier (/calendrier). La
   // lecture est ouverte à tout utilisateur connecté.
   event: ["manage"],
-  // Créer/renommer/supprimer un groupe (/groupes). Rejoindre/quitter un
-  // groupe est ouvert à tout utilisateur connecté (groupes ouverts, v1).
+  // Créer/renommer/supprimer un groupe (/groupes). Rejoindre se fait sur
+  // invitation (voir group_invitation dans src/db/schema.ts) — inviter est
+  // ouvert à tout membre du groupe (ou à `group:manage`), sans permission
+  // dédiée. Quitter un groupe reste ouvert à tout utilisateur connecté.
   group: ["manage"],
 } as const;
 

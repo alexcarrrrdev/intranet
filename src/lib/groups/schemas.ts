@@ -21,3 +21,10 @@ export type CreateGroupInput = z.infer<typeof createGroupSchema>
 
 export const groupIdSchema = z.object({ groupId: z.string().min(1) })
 export type GroupIdInput = z.infer<typeof groupIdSchema>
+
+// Invitation d'un utilisateur à un groupe (inviteToGroupAction).
+export const inviteToGroupSchema = z.object({
+  groupId: z.string().min(1),
+  userId: z.string().min(1),
+})
+export type InviteToGroupInput = z.infer<typeof inviteToGroupSchema>

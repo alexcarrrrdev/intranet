@@ -7,7 +7,7 @@ import { getCurrentSession } from "@/lib/auth/session"
 import { listUsers } from "@/lib/auth/users"
 import { listAnnouncements } from "@/lib/announcements/announcements"
 import { getEventDetail, listUpcomingEvents } from "@/lib/events/events"
-import { getGroupDetail, listGroups } from "@/lib/groups/groups"
+import { getGroupDetail, listGroupInvitees, listGroups, listMyInvitations } from "@/lib/groups/groups"
 import { listFeedPosts, type FeedScope } from "@/lib/feed/posts"
 import { mergeFeedItems } from "@/lib/feed/merge-feed-items"
 import { FeedComposer } from "@/components/feed/feed-composer"
@@ -62,24 +62,40 @@ export default async function FilPage({ searchParams }: FilPageProps) {
   // appliquée dans les actions de lecture (voir src/app/actions/feed.ts).
   const canReadScope = scope.type !== "group" || (groupDetail?.isMember ?? false)
 
-  const [posts, announcements, upcomingEvents, groups, users, canDeleteAny, canManageGroups, canManageEvents] =
-    await Promise.all([
-      canReadScope
-        ? listFeedPosts({
-            scope,
-            currentUserId: session.user.id,
-            limit: FEED_PAGE_SIZE,
-            offset: 0,
-          })
-        : Promise.resolve([]),
-      listAnnouncements({ currentUserId: session.user.id, includeReadStats: canManageAnnouncements }),
-      listUpcomingEvents(session.user.id),
-      listGroups(session.user.id),
-      listUsers(),
-      hasPermission(session.user, "post", "delete-any"),
-      hasPermission(session.user, "group", "manage"),
-      hasPermission(session.user, "event", "manage"),
-    ])
+  const [
+    posts,
+    announcements,
+    upcomingEvents,
+    groups,
+    invitations,
+    users,
+    canDeleteAny,
+    canManageGroups,
+    canManageEvents,
+  ] = await Promise.all([
+    canReadScope
+      ? listFeedPosts({
+          scope,
+          currentUserId: session.user.id,
+          limit: FEED_PAGE_SIZE,
+          offset: 0,
+        })
+      : Promise.resolve([]),
+    listAnnouncements({ currentUserId: session.user.id, includeReadStats: canManageAnnouncements }),
+    listUpcomingEvents(session.user.id),
+    listGroups(session.user.id),
+    listMyInvitations(session.user.id),
+    listUsers(),
+    hasPermission(session.user, "post", "delete-any"),
+    hasPermission(session.user, "group", "manage"),
+    hasPermission(session.user, "event", "manage"),
+  ])
+
+  // Employés invitables au groupe courant : seulement si l'utilisateur en
+  // est membre (seul cas où le bouton "Inviter" est rendu, voir
+  // GroupDetailHeader) — évite cette requête pour toutes les autres pages.
+  const groupInvitees =
+    scope.type === "group" && groupDetail?.isMember ? await listGroupInvitees(scope.id) : null
 
   const employees = users
     .filter((user) => user.id !== session.user.id)
@@ -91,6 +107,7 @@ export default async function FilPage({ searchParams }: FilPageProps) {
         <FeedLeftRail
           groups={groups}
           events={upcomingEvents}
+          invitations={invitations}
           activeGroupId={scope.type === "group" ? scope.id : null}
           activeEventId={scope.type === "event" ? scope.id : null}
           canManageGroups={canManageGroups}
@@ -107,7 +124,7 @@ export default async function FilPage({ searchParams }: FilPageProps) {
         )}
 
         {scope.type === "group" && groupDetail && (
-          <GroupDetailHeader group={groupDetail} canManage={canManageGroups} />
+          <GroupDetailHeader group={groupDetail} canManage={canManageGroups} invitees={groupInvitees} />
         )}
 
         {scope.type === "event" && eventDetail && (
@@ -128,7 +145,8 @@ export default async function FilPage({ searchParams }: FilPageProps) {
             <LockIcon className="size-5 text-muted-foreground" />
             <p className="text-sm font-medium">Groupe privé</p>
             <p className="text-sm text-muted-foreground">
-              Rejoignez ce groupe pour voir ses publications et y participer.
+              Ce groupe est sur invitation : demandez à un membre de vous inviter pour voir ses
+              publications et y participer.
             </p>
           </div>
         ) : scope.type === "general" ? (

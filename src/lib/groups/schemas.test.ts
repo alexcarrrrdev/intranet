@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { createGroupSchema } from "@/lib/groups/schemas"
+import { createGroupSchema, inviteToGroupSchema } from "@/lib/groups/schemas"
 
 describe("createGroupSchema", () => {
   it("accepte un groupe valide", () => {
@@ -25,6 +25,23 @@ describe("createGroupSchema", () => {
 
   it("refuse une description trop longue", () => {
     const result = createGroupSchema.safeParse({ name: "Comité social", description: "a".repeat(2001) })
+    expect(result.success).toBe(false)
+  })
+})
+
+describe("inviteToGroupSchema", () => {
+  it("accepte une invitation valide", () => {
+    const result = inviteToGroupSchema.safeParse({ groupId: "g1", userId: "u1" })
+    expect(result.success).toBe(true)
+  })
+
+  it("refuse un groupId vide", () => {
+    const result = inviteToGroupSchema.safeParse({ groupId: "", userId: "u1" })
+    expect(result.success).toBe(false)
+  })
+
+  it("refuse un userId manquant", () => {
+    const result = inviteToGroupSchema.safeParse({ groupId: "g1" })
     expect(result.success).toBe(false)
   })
 })

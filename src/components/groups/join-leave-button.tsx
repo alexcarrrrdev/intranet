@@ -1,35 +1,28 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
-import { joinGroupAction, leaveGroupAction } from "@/app/actions/groups"
+import { leaveGroupAction } from "@/app/actions/groups"
 import { Button } from "@/components/ui/button"
 
-type JoinLeaveButtonProps = {
+type LeaveGroupButtonProps = {
   groupId: string
-  isMember: boolean
   size?: "sm" | "default"
 }
 
-// Bouton Rejoindre/Quitter un groupe : ouvert à tout utilisateur connecté
-// (groupes ouverts, v1), utilisé à la fois par la grille (/groupes) et
-// l'en-tête de détail (/groupes/[id]).
-export function JoinLeaveButton({ groupId, isMember: initialIsMember, size = "sm" }: JoinLeaveButtonProps) {
+// Bouton "Quitter" un groupe — rejoindre se fait désormais uniquement sur
+// invitation (voir acceptInvitationAction), ce composant ne gère donc plus
+// que la sortie d'un groupe dont l'utilisateur est déjà membre.
+export function LeaveGroupButton({ groupId, size = "sm" }: LeaveGroupButtonProps) {
   const router = useRouter()
-  const [isMember, setIsMember] = useState(initialIsMember)
   const [isPending, startTransition] = useTransition()
 
   function handleClick() {
-    const wasMember = isMember
-    setIsMember(!wasMember)
     startTransition(async () => {
-      const result = wasMember
-        ? await leaveGroupAction({ groupId })
-        : await joinGroupAction({ groupId })
+      const result = await leaveGroupAction({ groupId })
       if (result.error) {
-        setIsMember(wasMember)
         toast.error(result.error)
         return
       }
@@ -38,13 +31,8 @@ export function JoinLeaveButton({ groupId, isMember: initialIsMember, size = "sm
   }
 
   return (
-    <Button
-      variant={isMember ? "outline" : "default"}
-      size={size}
-      onClick={handleClick}
-      disabled={isPending}
-    >
-      {isMember ? "Quitter" : "Rejoindre"}
+    <Button variant="outline" size={size} onClick={handleClick} disabled={isPending}>
+      Quitter
     </Button>
   )
 }

@@ -1,19 +1,19 @@
 import Link from "next/link"
-import { CalendarDaysIcon, NewspaperIcon } from "lucide-react"
+import { CalendarDaysIcon, MailIcon, NewspaperIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { JoinLeaveButton } from "@/components/groups/join-leave-button"
 import { NewGroupDialog } from "@/components/groups/new-group-dialog"
 import { NewEventDialog } from "@/components/events/new-event-dialog"
 import { formatDayOfMonth, formatShortMonth } from "@/lib/dates"
-import type { GroupListItem } from "@/lib/groups/groups"
+import type { GroupListItem, PendingInvitation } from "@/lib/groups/groups"
 import type { EventListItem } from "@/lib/events/events"
 import { cn } from "@/lib/utils"
 
 type FeedLeftRailProps = {
   groups: GroupListItem[]
   events: EventListItem[]
+  invitations: PendingInvitation[]
   activeGroupId: string | null
   activeEventId: string | null
   canManageGroups: boolean
@@ -38,6 +38,7 @@ const UPCOMING_EVENTS_LIMIT = 5
 export function FeedLeftRail({
   groups,
   events,
+  invitations,
   activeGroupId,
   activeEventId,
   canManageGroups,
@@ -89,6 +90,29 @@ export function FeedLeftRail({
           ))}
         </div>
 
+        {invitations.length > 0 && (
+          <div className="mt-1 flex flex-col gap-1 border-t pt-2">
+            <h3 className="px-3 text-xs font-semibold uppercase text-muted-foreground">
+              Invitations
+            </h3>
+            {invitations.map((invitation) => (
+              <Link
+                key={invitation.groupId}
+                href={`/fil?groupe=${invitation.groupId}`}
+                className="flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-muted"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <MailIcon className="size-3.5 shrink-0 text-primary" />
+                  <span className="truncate">{invitation.groupName}</span>
+                </span>
+                <Badge variant="secondary" className="shrink-0 px-1.5 text-[10px]">
+                  Nouveau
+                </Badge>
+              </Link>
+            ))}
+          </div>
+        )}
+
         {otherGroups.length > 0 && (
           <div className="mt-1 flex flex-col gap-1 border-t pt-2">
             <h3 className="px-3 text-xs font-semibold uppercase text-muted-foreground">
@@ -97,7 +121,6 @@ export function FeedLeftRail({
             {otherGroups.map((group) => (
               <div key={group.id} className="flex items-center justify-between gap-2 px-3 py-1">
                 <span className="truncate text-sm">{group.name}</span>
-                <JoinLeaveButton groupId={group.id} isMember={false} size="sm" />
               </div>
             ))}
           </div>

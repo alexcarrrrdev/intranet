@@ -49,6 +49,7 @@ export const AUDIT_ACTIONS = {
   "event.delete": "Suppression d'un événement",
   "group.create": "Création d'un groupe",
   "group.delete": "Suppression d'un groupe",
+  "group.invite": "Invitation à un groupe",
 } as const satisfies Record<string, string>
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS
