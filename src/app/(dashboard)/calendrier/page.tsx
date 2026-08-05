@@ -17,7 +17,7 @@ export default async function CalendrierPage() {
   }
 
   const [events, canManage] = await Promise.all([
-    listUpcomingEvents(),
+    listUpcomingEvents(session.user.id),
     hasPermission(session.user, "event", "manage"),
   ])
 

@@ -33,6 +33,7 @@ type ComposerTab = "message" | "kudos" | "poll"
 
 type FeedComposerProps = {
   groupId: string | null
+  eventId?: string | null
   currentUser: { name: string; image: string | null }
   employees: ComposerUser[]
   onPosted?: () => void
@@ -58,7 +59,7 @@ function initials(name: string): string {
 // + 2 à 5 options). Un seul composant pour les trois, plutôt que trois
 // formulaires séparés : ils partagent la zone de texte et les boutons
 // d'action, seule la partie spécifique change selon l'onglet actif.
-export function FeedComposer({ groupId, currentUser, employees, onPosted }: FeedComposerProps) {
+export function FeedComposer({ groupId, eventId = null, currentUser, employees, onPosted }: FeedComposerProps) {
   const [tab, setTab] = useState<ComposerTab>("message")
   const [body, setBody] = useState("")
   const [kudosRecipientId, setKudosRecipientId] = useState("")
@@ -82,7 +83,7 @@ export function FeedComposer({ groupId, currentUser, employees, onPosted }: Feed
 
     if (tab === "message") {
       startTransition(async () => {
-        const result = await createMessagePostAction({ groupId, body })
+        const result = await createMessagePostAction({ groupId, eventId, body })
         if (result.error) {
           setError(result.error)
           return
@@ -99,7 +100,7 @@ export function FeedComposer({ groupId, currentUser, employees, onPosted }: Feed
         return
       }
       startTransition(async () => {
-        const result = await createKudosPostAction({ groupId, body, kudosRecipientId })
+        const result = await createKudosPostAction({ groupId, eventId, body, kudosRecipientId })
         if (result.error) {
           setError(result.error)
           return
@@ -112,7 +113,7 @@ export function FeedComposer({ groupId, currentUser, employees, onPosted }: Feed
 
     const trimmedOptions = options.map((option) => option.trim()).filter(Boolean)
     startTransition(async () => {
-      const result = await createPollPostAction({ groupId, body, options: trimmedOptions })
+      const result = await createPollPostAction({ groupId, eventId, body, options: trimmedOptions })
       if (result.error) {
         setError(result.error)
         return

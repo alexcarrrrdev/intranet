@@ -38,7 +38,13 @@ import { Textarea } from "@/components/ui/textarea"
 // `announcement:manage` — le bouton qui l'ouvre n'est rendu que côté page
 // pour ces utilisateurs, la vérification qui fait autorité reste dans
 // createAnnouncementAction.
-export function NewAnnouncementDialog() {
+type NewAnnouncementDialogProps = {
+  // "icon" : petit bouton "+" sans texte, utilisé dans le rail droit de
+  // /fil (espace restreint) — "button" (défaut) : bouton complet.
+  trigger?: "button" | "icon"
+}
+
+export function NewAnnouncementDialog({ trigger = "button" }: NewAnnouncementDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -79,10 +85,16 @@ export function NewAnnouncementDialog() {
     >
       <DialogTrigger
         render={
-          <Button>
-            <PlusIcon className="size-4" />
-            Nouvelle annonce
-          </Button>
+          trigger === "icon" ? (
+            <Button variant="ghost" size="icon" className="size-6" aria-label="Nouvelle annonce">
+              <PlusIcon className="size-4" />
+            </Button>
+          ) : (
+            <Button>
+              <PlusIcon className="size-4" />
+              Nouvelle annonce
+            </Button>
+          )
         }
       />
       <DialogContent className="sm:max-w-lg">

@@ -42,7 +42,14 @@ import { Textarea } from "@/components/ui/textarea"
 // l'entrée et la sortie du schéma.
 type FormValues = { name: string; description: string }
 
-export function NewGroupDialog() {
+type NewGroupDialogProps = {
+  // "icon" : petit bouton "+" sans texte, utilisé dans le rail gauche de
+  // /fil (espace restreint) — "button" (défaut) : bouton complet "Nouveau
+  // groupe", utilisé ailleurs.
+  trigger?: "button" | "icon"
+}
+
+export function NewGroupDialog({ trigger = "button" }: NewGroupDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -91,10 +98,16 @@ export function NewGroupDialog() {
     >
       <DialogTrigger
         render={
-          <Button>
-            <PlusIcon className="size-4" />
-            Nouveau groupe
-          </Button>
+          trigger === "icon" ? (
+            <Button variant="ghost" size="icon" className="size-6" aria-label="Nouveau groupe">
+              <PlusIcon className="size-4" />
+            </Button>
+          ) : (
+            <Button>
+              <PlusIcon className="size-4" />
+              Nouveau groupe
+            </Button>
+          )
         }
       />
       <DialogContent className="sm:max-w-lg">

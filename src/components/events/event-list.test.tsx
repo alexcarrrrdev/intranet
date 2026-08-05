@@ -20,6 +20,8 @@ const events: EventListItem[] = [
     endsAt: new Date("2026-08-15T19:00:00"),
     allDay: false,
     createdAt: new Date("2026-08-01T12:00:00"),
+    goingCount: 0,
+    myRsvp: null,
   },
   {
     id: "evt-2",
@@ -30,6 +32,8 @@ const events: EventListItem[] = [
     endsAt: null,
     allDay: true,
     createdAt: new Date("2026-08-01T12:00:00"),
+    goingCount: 0,
+    myRsvp: null,
   },
 ]
 

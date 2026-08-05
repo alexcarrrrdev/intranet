@@ -32,10 +32,11 @@ type GroupDetailHeaderProps = {
   canManage: boolean
 }
 
-// En-tête de /groupes/[id] : nom, description, nb de membres,
-// Rejoindre/Quitter, suppression (group:manage). La redirection après
-// suppression revient à /groupes, seul point de sortie possible depuis
-// une page qui vient de perdre son groupe.
+// En-tête de contexte du fil filtré par groupe (/fil?groupe=…) : nom,
+// description, nb de membres, Rejoindre/Quitter, suppression (group:manage).
+// La redirection après suppression revient à /fil (désélectionne le
+// filtre), seul point de sortie possible depuis un groupe qui vient d'être
+// supprimé.
 export function GroupDetailHeader({ group, canManage }: GroupDetailHeaderProps) {
   const router = useRouter()
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -51,7 +52,7 @@ export function GroupDetailHeader({ group, canManage }: GroupDetailHeaderProps) 
         return
       }
       toast.success("Le groupe a été supprimé.")
-      router.push("/groupes")
+      router.push("/fil")
     })
   }
 

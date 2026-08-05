@@ -8,6 +8,7 @@ import { and, desc, eq, inArray, isNull, or } from "drizzle-orm"
 
 import { db } from "@/db"
 import {
+  event,
   groupMember,
   intranetGroup,
   pollOption,
@@ -18,6 +19,19 @@ import {
   user,
 } from "@/db/schema"
 import type { ReactionEmoji } from "@/lib/feed/schemas"
+
+/**
+ * Contexte du fil interrogé par listFeedPosts : "general" pour le fil
+ * unifié (posts sans groupe/événement + posts des groupes dont l'utilisateur
+ * est membre), "group"/"event" pour le fil filtré d'un groupe ou d'un
+ * événement précis (/fil?groupe=… ou /fil?evenement=…) — voir le plan
+ * produit. Un post n'appartient jamais qu'à un seul de ces contextes (voir
+ * le commentaire de `post` dans src/db/schema.ts).
+ */
+export type FeedScope =
+  | { type: "general" }
+  | { type: "group"; id: string }
+  | { type: "event"; id: string }
 
 export type FeedAuthor = {
   id: string
@@ -48,10 +62,16 @@ export type FeedPost = {
   pollTotalVotes: number
   myPollOptionId: string | null
   // Groupe d'origine du post, uniquement renseigné dans le fil général
-  // (`groupId: null` passé à listFeedPosts) pour un post provenant d'un
-  // groupe dont l'utilisateur est membre — voir listFeedPosts ci-dessous.
-  // Toujours `null` en mode fil de groupe (`groupId` fourni).
+  // (scope "general") pour un post provenant d'un groupe dont l'utilisateur
+  // est membre — voir listFeedPosts ci-dessous. Toujours `null` en mode fil
+  // de groupe ou d'événement.
   group: FeedGroupRef | null
+  // Événement d'origine du post — même principe que `group` ci-dessus, mais
+  // pour le fil général uniquement dans un premier temps il n'est PAS
+  // recalculé (un post d'événement n'apparaît que dans son propre fil filtré,
+  // pas dans le fil général) : toujours `null` en scope "general"/"group",
+  // renseigné en scope "event".
+  event: { id: string; title: string } | null
 }
 
 const NO_AUTHOR: FeedAuthor = { id: "", name: "Utilisateur inconnu", image: null }
@@ -73,23 +93,30 @@ const NO_AUTHOR: FeedAuthor = { id: "", name: "Utilisateur inconnu", image: null
  *   {groupe} ».
  */
 export async function listFeedPosts(params: {
-  groupId: string | null
+  scope: FeedScope
   currentUserId: string
   limit: number
   offset: number
 }): Promise<FeedPost[]> {
-  const { groupId, currentUserId, limit, offset } = params
+  const { scope, currentUserId, limit, offset } = params
 
-  let whereClause = groupId ? eq(post.groupId, groupId) : isNull(post.groupId)
+  let whereClause = and(isNull(post.groupId), isNull(post.eventId))!
 
-  if (!groupId) {
+  if (scope.type === "group") {
+    whereClause = eq(post.groupId, scope.id)
+  } else if (scope.type === "event") {
+    whereClause = eq(post.eventId, scope.id)
+  } else {
     const memberships = await db
       .select({ groupId: groupMember.groupId })
       .from(groupMember)
       .where(eq(groupMember.userId, currentUserId))
     const memberGroupIds = memberships.map((row) => row.groupId)
     if (memberGroupIds.length > 0) {
-      whereClause = or(isNull(post.groupId), inArray(post.groupId, memberGroupIds))!
+      whereClause = and(
+        isNull(post.eventId),
+        or(isNull(post.groupId), inArray(post.groupId, memberGroupIds)),
+      )!
     }
   }
 
@@ -105,10 +132,13 @@ export async function listFeedPosts(params: {
       kudosRecipientId: post.kudosRecipientId,
       groupId: post.groupId,
       groupName: intranetGroup.name,
+      eventId: post.eventId,
+      eventTitle: event.title,
     })
     .from(post)
     .innerJoin(user, eq(post.authorId, user.id))
     .leftJoin(intranetGroup, eq(post.groupId, intranetGroup.id))
+    .leftJoin(event, eq(post.eventId, event.id))
     .where(whereClause)
     .orderBy(desc(post.createdAt))
     .limit(limit)
@@ -213,7 +243,14 @@ export async function listFeedPosts(params: {
       pollOptions: options,
       pollTotalVotes: options.reduce((sum, option) => sum + option.voteCount, 0),
       myPollOptionId: myVoteByPost.get(row.id) ?? null,
-      group: !groupId && row.groupId && row.groupName ? { id: row.groupId, name: row.groupName } : null,
+      group:
+        scope.type === "general" && row.groupId && row.groupName
+          ? { id: row.groupId, name: row.groupName }
+          : null,
+      event:
+        scope.type === "event" && row.eventId && row.eventTitle
+          ? { id: row.eventId, title: row.eventTitle }
+          : null,
     }
   })
 }
@@ -270,6 +307,7 @@ export async function isGroupMember(groupId: string, userId: string): Promise<bo
 
 export async function createMessagePost(params: {
   groupId: string | null
+  eventId: string | null
   authorId: string
   body: string
 }): Promise<void> {
@@ -277,6 +315,7 @@ export async function createMessagePost(params: {
     id: randomUUID(),
     authorId: params.authorId,
     groupId: params.groupId,
+    eventId: params.eventId,
     type: "message",
     body: params.body,
   })
@@ -284,6 +323,7 @@ export async function createMessagePost(params: {
 
 export async function createKudosPost(params: {
   groupId: string | null
+  eventId: string | null
   authorId: string
   body: string
   kudosRecipientId: string
@@ -292,6 +332,7 @@ export async function createKudosPost(params: {
     id: randomUUID(),
     authorId: params.authorId,
     groupId: params.groupId,
+    eventId: params.eventId,
     type: "kudos",
     body: params.body,
     kudosRecipientId: params.kudosRecipientId,
@@ -300,6 +341,7 @@ export async function createKudosPost(params: {
 
 export async function createPollPost(params: {
   groupId: string | null
+  eventId: string | null
   authorId: string
   body: string
   options: string[]
@@ -310,6 +352,7 @@ export async function createPollPost(params: {
       id: postId,
       authorId: params.authorId,
       groupId: params.groupId,
+      eventId: params.eventId,
       type: "poll",
       body: params.body,
     })
@@ -324,11 +367,11 @@ export async function createPollPost(params: {
   })
 }
 
-export type PostOwnership = { authorId: string; groupId: string | null } | null
+export type PostOwnership = { authorId: string; groupId: string | null; eventId: string | null } | null
 
 export async function getPostOwnership(postId: string): Promise<PostOwnership> {
   const [row] = await db
-    .select({ authorId: post.authorId, groupId: post.groupId })
+    .select({ authorId: post.authorId, groupId: post.groupId, eventId: post.eventId })
     .from(post)
     .where(eq(post.id, postId))
     .limit(1)

@@ -328,9 +328,12 @@ export const groupMember = pgTable(
 
 // Publication du fil : message simple, bon coup ("kudos") ou sondage — le
 // contenu spécifique aux sondages vit dans poll_option/poll_vote ci-dessous,
-// `post` ne porte que ce qui est commun aux trois types. `groupId` NULL
-// signifie « fil général » (voir /fil) ; non-NULL signifie « fil du groupe »
-// (voir /groupes/[id]), les deux pages réutilisant les mêmes composants.
+// `post` ne porte que ce qui est commun aux trois types. Un post appartient à
+// UN SEUL contexte : fil général (`groupId` ET `eventId` NULL), fil de
+// groupe (`groupId` renseigné) ou fil d'événement (`eventId` renseigné) —
+// jamais deux à la fois, validé côté serveur (voir src/lib/feed/posts.ts,
+// pas de contrainte CHECK SQL). Ces trois contextes sont tous rendus depuis
+// /fil (voir /fil?groupe=… et /fil?evenement=…, le plan produit).
 // `kudosRecipientId` n'a de sens que pour type = "kudos" (validé côté
 // serveur, pas de contrainte SQL — cohérent avec l'approche du reste du
 // schéma, ex. `announcement`).
@@ -342,6 +345,12 @@ export const post = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     groupId: text("group_id").references(() => intranetGroup.id, {
+      onDelete: "cascade",
+    }),
+    // Contexte "fil d'événement" (voir le commentaire de `post` ci-dessus) —
+    // NULL en mode général ou groupe. Cascade : supprimer l'événement
+    // supprime ses posts.
+    eventId: text("event_id").references(() => event.id, {
       onDelete: "cascade",
     }),
     // "message" | "kudos" | "poll" — texte plutôt qu'un enum Postgres pour
@@ -358,6 +367,8 @@ export const post = pgTable(
     // Sert le chargement du fil (général ou de groupe), toujours trié du
     // plus récent au plus ancien.
     index("post_group_id_created_at_idx").on(table.groupId, table.createdAt),
+    // Même usage pour le fil d'un événement (/fil?evenement=…).
+    index("post_event_id_created_at_idx").on(table.eventId, table.createdAt),
   ],
 );
 
@@ -516,6 +527,10 @@ export const postRelations = relations(post, ({ one, many }) => ({
     fields: [post.groupId],
     references: [intranetGroup.id],
   }),
+  event: one(event, {
+    fields: [post.eventId],
+    references: [event.id],
+  }),
   kudosRecipient: one(user, {
     fields: [post.kudosRecipientId],
     references: [user.id],
@@ -589,9 +604,48 @@ export const announcementReadRelations = relations(announcementRead, ({ one }) =
   }),
 }));
 
-export const eventRelations = relations(event, ({ one }) => ({
+export const eventRelations = relations(event, ({ one, many }) => ({
   createdByUser: one(user, {
     fields: [event.createdBy],
+    references: [user.id],
+  }),
+  posts: many(post),
+  rsvps: many(eventRsvp),
+}));
+
+// Participation à un événement (RSVP) : clé composite (eventId, userId), une
+// seule ligne par couple — répondre à nouveau REMPLACE la réponse existante
+// (upsert idempotent, voir src/lib/events/rsvp.ts), jamais une seconde
+// ligne. Ouvert à tout utilisateur connecté (pas de permission particulière,
+// contrairement à la création/suppression de l'événement lui-même).
+export const eventRsvp = pgTable(
+  "event_rsvp",
+  {
+    eventId: text("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // "going" | "declined" — texte plutôt qu'un enum Postgres, cohérent avec
+    // le reste du schéma (ex. `post.type`), validé côté serveur.
+    status: text("status").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.eventId, table.userId] })],
+);
+
+export const eventRsvpRelations = relations(eventRsvp, ({ one }) => ({
+  event: one(event, {
+    fields: [eventRsvp.eventId],
+    references: [event.id],
+  }),
+  user: one(user, {
+    fields: [eventRsvp.userId],
     references: [user.id],
   }),
 }));

@@ -23,6 +23,7 @@ import {
   votePoll,
   type FeedComment,
   type FeedPost,
+  type FeedScope,
 } from "@/lib/feed/posts"
 import {
   addCommentSchema,
@@ -69,6 +70,7 @@ export async function createMessagePostAction(
   try {
     await createMessagePost({
       groupId: parsed.data.groupId ?? null,
+      eventId: parsed.data.eventId ?? null,
       authorId: session.user.id,
       body: parsed.data.body,
     })
@@ -95,6 +97,7 @@ export async function createKudosPostAction(values: unknown): Promise<ActionResu
   try {
     await createKudosPost({
       groupId: parsed.data.groupId ?? null,
+      eventId: parsed.data.eventId ?? null,
       authorId: session.user.id,
       body: parsed.data.body,
       kudosRecipientId: parsed.data.kudosRecipientId,
@@ -122,6 +125,7 @@ export async function createPollPostAction(values: unknown): Promise<ActionResul
   try {
     await createPollPost({
       groupId: parsed.data.groupId ?? null,
+      eventId: parsed.data.eventId ?? null,
       authorId: session.user.id,
       body: parsed.data.body,
       options: parsed.data.options,
@@ -285,14 +289,14 @@ const FEED_PAGE_SIZE = 30
 // src/components/feed/post-list.tsx) — lecture seule, pas de mutation, donc
 // pas de `refresh()` ici.
 export async function loadMoreFeedPostsAction(params: {
-  groupId: string | null
+  scope: FeedScope
   offset: number
 }): Promise<{ posts: FeedPost[]; error?: string }> {
   const session = await requireSession()
   if (!session) return { posts: [], error: "Vous devez être connecté." }
 
   const posts = await listFeedPosts({
-    groupId: params.groupId,
+    scope: params.scope,
     currentUserId: session.user.id,
     limit: FEED_PAGE_SIZE,
     offset: params.offset,

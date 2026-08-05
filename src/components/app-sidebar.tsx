@@ -7,10 +7,8 @@ import {
   BookUser,
   CalendarDays,
   ChevronRightIcon,
-  Megaphone,
   Newspaper,
   Settings2Icon,
-  UsersRound,
   type LucideIcon,
 } from "lucide-react"
 
@@ -69,7 +67,9 @@ type NavItem = {
 }
 
 // Navigation principale du back-office. Ajouter une entrée de premier
-// niveau ici suffit à l'afficher dans la barre latérale.
+// niveau ici suffit à l'afficher dans la barre latérale. « Groupes » et
+// « Annonces » ont été retirées : /fil est désormais le hub unique (rails
+// gauche/droit), voir le plan produit — leurs routes redirigent vers /fil.
 const navItems: NavItem[] = [
   // Modules sociaux de l'intranet : visibles par tout utilisateur connecté
   // (pas de `requiredPermission`) — la gestion (créer une annonce, un
@@ -77,10 +77,8 @@ const navItems: NavItem[] = [
   // les permissions dédiées (voir src/lib/auth/permissions.ts), mais la
   // simple consultation de ces sections est ouverte à tous.
   { title: "Fil d'actualités", href: "/fil", icon: Newspaper },
-  { title: "Annonces", href: "/annonces", icon: Megaphone },
   { title: "Annuaire", href: "/annuaire", icon: BookUser },
   { title: "Calendrier", href: "/calendrier", icon: CalendarDays },
-  { title: "Groupes", href: "/groupes", icon: UsersRound },
 ]
 
 // Groupe "Administration". Le groupe entier disparaît si aucune de ses

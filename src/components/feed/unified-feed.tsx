@@ -55,7 +55,7 @@ export function UnifiedFeed({
 
   function handleLoadMore() {
     startTransition(async () => {
-      const result = await loadMoreFeedPostsAction({ groupId: null, offset: postsLoaded })
+      const result = await loadMoreFeedPostsAction({ scope: { type: "general" }, offset: postsLoaded })
       const newItems: FeedItem[] = result.posts.map((post) => ({
         kind: "post",
         date: post.createdAt,

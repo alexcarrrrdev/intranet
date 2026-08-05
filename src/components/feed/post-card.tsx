@@ -191,8 +191,16 @@ export function PostCard({ post, currentUserId, canDeleteAny }: PostCardProps) {
                 {post.group && (
                   <>
                     <span aria-hidden>·</span>
-                    <Link href={`/groupes/${post.group.id}`} className="hover:text-primary hover:underline">
+                    <Link href={`/fil?groupe=${post.group.id}`} className="hover:text-primary hover:underline">
                       dans {post.group.name}
+                    </Link>
+                  </>
+                )}
+                {post.event && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <Link href={`/fil?evenement=${post.event.id}`} className="hover:text-primary hover:underline">
+                      dans {post.event.title}
                     </Link>
                   </>
                 )}

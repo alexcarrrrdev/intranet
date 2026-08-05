@@ -7,21 +7,22 @@ import { loadMoreFeedPostsAction } from "@/app/actions/feed"
 import { PostCard } from "@/components/feed/post-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import type { FeedPost } from "@/lib/feed/posts"
+import type { FeedPost, FeedScope } from "@/lib/feed/posts"
 
 type PostListProps = {
-  groupId: string | null
+  scope: FeedScope
   initialPosts: FeedPost[]
   pageSize: number
   currentUserId: string
   canDeleteAny: boolean
 }
 
-// Liste des publications du fil, avec un bouton « Voir plus » (pagination
-// simple par décalage) plutôt qu'un défilement infini — voir le plan
-// produit. Réutilisé tel quel par /fil et /groupes/[id].
+// Liste des publications d'un fil filtré (groupe ou événement — voir
+// /fil?groupe=… et /fil?evenement=…), avec un bouton « Voir plus »
+// (pagination simple par décalage) plutôt qu'un défilement infini — voir le
+// plan produit.
 export function PostList({
-  groupId,
+  scope,
   initialPosts,
   pageSize,
   currentUserId,
@@ -52,7 +53,7 @@ export function PostList({
 
   function handleLoadMore() {
     startTransition(async () => {
-      const result = await loadMoreFeedPostsAction({ groupId, offset: posts.length })
+      const result = await loadMoreFeedPostsAction({ scope, offset: posts.length })
       setPosts((prev) => [...prev, ...result.posts])
       setHasMore(result.posts.length === pageSize)
     })

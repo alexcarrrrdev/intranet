@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { CalendarDaysIcon, MoreHorizontalIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { MoreHorizontalIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { deleteEventAction } from "@/app/actions/events"
@@ -16,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   DropdownMenu,
@@ -23,73 +25,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
 import { RsvpButtons } from "@/components/events/rsvp-buttons"
 import { formatDayOfMonth, formatShortMonth, formatTime } from "@/lib/dates"
-import type { EventListItem } from "@/lib/events/events"
+import type { EventDetail } from "@/lib/events/events"
 
-type EventListProps = {
-  events: EventListItem[]
+type EventDetailHeaderProps = {
+  event: EventDetail
   canManage: boolean
 }
 
-// Regroupe les événements (déjà triés par `startsAt` croissant, voir
-// listUpcomingEvents) par mois civil — clé "année-mois" pour distinguer
-// deux occurrences du même mois d'années différentes.
-function groupByMonth(events: EventListItem[]): { key: string; label: string; events: EventListItem[] }[] {
-  const groups = new Map<string, { label: string; events: EventListItem[] }>()
-
-  for (const event of events) {
-    const date = event.startsAt
-    const key = `${date.getFullYear()}-${date.getMonth()}`
-    const label = date.toLocaleDateString("fr-CA", { month: "long", year: "numeric" })
-    const capitalizedLabel = label.charAt(0).toUpperCase() + label.slice(1)
-    if (!groups.has(key)) groups.set(key, { label: capitalizedLabel, events: [] })
-    groups.get(key)!.events.push(event)
-  }
-
-  return Array.from(groups.entries()).map(([key, value]) => ({ key, ...value }))
-}
-
-export function EventList({ events, canManage }: EventListProps) {
-  if (events.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
-          <CalendarDaysIcon className="size-8" />
-          <p className="text-sm">
-            Aucun événement à venir pour le moment.
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const groups = groupByMonth(events)
-
-  return (
-    <div className="flex flex-col gap-6">
-      {groups.map((group) => (
-        <div key={group.key} className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-muted-foreground">{group.label}</h2>
-          <div className="flex flex-col gap-3">
-            {group.events.map((event) => (
-              <EventCard key={event.id} event={event} canManage={canManage} />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function EventCard({ event, canManage }: { event: EventListItem; canManage: boolean }) {
-  const [deleted, setDeleted] = useState(false)
+// En-tête de contexte du fil filtré par événement (/fil?evenement=…) : bloc
+// date, titre, heure/lieu/description, compteur de participants, boutons de
+// participation, suppression (event:manage). La redirection après
+// suppression revient à /fil (désélectionne le filtre).
+export function EventDetailHeader({ event, canManage }: EventDetailHeaderProps) {
+  const router = useRouter()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  if (deleted) return null
 
   function handleDelete() {
     setError(null)
@@ -99,9 +52,8 @@ function EventCard({ event, canManage }: { event: EventListItem; canManage: bool
         setError(result.error)
         return
       }
-      setConfirmOpen(false)
-      setDeleted(true)
       toast.success("L'événement a été supprimé.")
+      router.push("/fil")
     })
   }
 
@@ -112,9 +64,9 @@ function EventCard({ event, canManage }: { event: EventListItem; canManage: bool
           <span className="text-xl font-bold leading-none">{formatDayOfMonth(event.startsAt)}</span>
           <span className="text-xs uppercase">{formatShortMonth(event.startsAt)}</span>
         </div>
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium">{event.title}</h3>
+            <h1 className="text-lg font-semibold">{event.title}</h1>
             {canManage && (
               <>
                 <DropdownMenu>
@@ -126,10 +78,7 @@ function EventCard({ event, canManage }: { event: EventListItem; canManage: bool
                     }
                   />
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => setConfirmOpen(true)}
-                    >
+                    <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>
                       Supprimer
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -139,16 +88,16 @@ function EventCard({ event, canManage }: { event: EventListItem; canManage: bool
                     <AlertDialogHeader>
                       <AlertDialogTitle>Supprimer cet événement ?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        « {event.title} » sera définitivement supprimé. Cette action est
-                        irréversible.
+                        « {event.title} » et toutes ses publications seront définitivement
+                        supprimés. Cette action est irréversible.
                         {error && <span className="mt-2 block text-destructive">{error}</span>}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Annuler</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={(event) => {
-                          event.preventDefault()
+                        onClick={(clickEvent) => {
+                          clickEvent.preventDefault()
                           handleDelete()
                         }}
                         disabled={isPending}
@@ -161,6 +110,7 @@ function EventCard({ event, canManage }: { event: EventListItem; canManage: bool
               </>
             )}
           </div>
+
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {event.allDay ? (
               <Badge variant="secondary">Toute la journée</Badge>
@@ -172,14 +122,14 @@ function EventCard({ event, canManage }: { event: EventListItem; canManage: bool
             )}
             {event.location && <span>· {event.location}</span>}
           </div>
+
           {event.description && <p className="text-sm">{event.description}</p>}
-          <div className="pt-1">
-            <RsvpButtons
-              eventId={event.id}
-              initialStatus={event.myRsvp}
-              initialGoingCount={event.goingCount}
-            />
-          </div>
+
+          <RsvpButtons
+            eventId={event.id}
+            initialStatus={event.myRsvp}
+            initialGoingCount={event.goingCount}
+          />
         </div>
       </CardContent>
     </Card>

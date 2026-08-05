@@ -47,7 +47,14 @@ type FormValues = {
 // de `event:manage` — le bouton qui l'ouvre n'est rendu que côté page pour
 // ces utilisateurs, la vérification qui fait autorité reste dans
 // createEventAction.
-export function NewEventDialog() {
+type NewEventDialogProps = {
+  // "icon" : petit bouton "+" sans texte, utilisé dans le rail gauche de
+  // /fil (espace restreint) — "button" (défaut) : bouton complet "Nouvel
+  // événement", utilisé ailleurs (ex. /calendrier).
+  trigger?: "button" | "icon"
+}
+
+export function NewEventDialog({ trigger = "button" }: NewEventDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -115,10 +122,16 @@ export function NewEventDialog() {
     >
       <DialogTrigger
         render={
-          <Button>
-            <PlusIcon className="size-4" />
-            Nouvel événement
-          </Button>
+          trigger === "icon" ? (
+            <Button variant="ghost" size="icon" className="size-6" aria-label="Nouvel événement">
+              <PlusIcon className="size-4" />
+            </Button>
+          ) : (
+            <Button>
+              <PlusIcon className="size-4" />
+              Nouvel événement
+            </Button>
+          )
         }
       />
       <DialogContent className="sm:max-w-lg">

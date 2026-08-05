@@ -84,3 +84,23 @@ describe("addCommentSchema", () => {
     expect(result.success).toBe(false)
   })
 })
+
+describe("exclusivité du contexte (groupe XOR événement)", () => {
+  it("accepte un post rattaché à un événement seul", () => {
+    const result = createMessagePostSchema.safeParse({
+      groupId: null,
+      eventId: "evt-1",
+      body: "Bonjour",
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("refuse un post rattaché à un groupe ET un événement en même temps", () => {
+    const result = createMessagePostSchema.safeParse({
+      groupId: "group-1",
+      eventId: "evt-1",
+      body: "Bonjour",
+    })
+    expect(result.success).toBe(false)
+  })
+})

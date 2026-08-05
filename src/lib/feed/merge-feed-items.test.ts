@@ -20,6 +20,7 @@ function makePost(overrides: Partial<FeedPost> = {}): FeedPost {
     pollTotalVotes: 0,
     myPollOptionId: null,
     group: null,
+    event: null,
     ...overrides,
   }
 }
@@ -49,6 +50,8 @@ function makeEvent(overrides: Partial<EventListItem> = {}): EventListItem {
     endsAt: null,
     allDay: false,
     createdAt: new Date("2026-08-01T08:00:00"),
+    goingCount: 0,
+    myRsvp: null,
     ...overrides,
   }
 }

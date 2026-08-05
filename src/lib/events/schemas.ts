@@ -39,3 +39,11 @@ export type CreateEventInput = z.infer<typeof createEventSchema>
 
 export const eventIdSchema = z.object({ eventId: z.string().min(1) })
 export type EventIdInput = z.infer<typeof eventIdSchema>
+
+// Réponse à un événement (RSVP, /fil?evenement=… et /calendrier) : ouvert à
+// tout utilisateur connecté (voir src/app/actions/events.ts, rsvpAction).
+export const setRsvpSchema = z.object({
+  eventId: z.string().min(1),
+  status: z.enum(["going", "declined"]),
+})
+export type SetRsvpInput = z.infer<typeof setRsvpSchema>

@@ -78,6 +78,13 @@
       "when": 1785886015694,
       "tag": "0010_lowly_harry_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785887555620,
+      "tag": "0011_closed_paladin",
+      "breakpoints": true
     }
   ]
 }

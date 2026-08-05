@@ -26,34 +26,56 @@ const commentBodySchema = z
   .max(1000, { error: "Le commentaire est trop long (1000 caractères maximum)." })
 
 const groupIdSchema = z.string().nullable().optional()
+const eventIdSchema = z.string().nullable().optional()
 
-export const createMessagePostSchema = z.object({
-  groupId: groupIdSchema,
-  body: bodySchema,
-})
+// Un post appartient à UN SEUL contexte — général, groupe OU événement,
+// jamais deux à la fois (voir le commentaire de `post` dans
+// src/db/schema.ts) : ce refine rejette toute soumission où `groupId` ET
+// `eventId` seraient renseignés en même temps.
+const exclusiveContext = <T extends { groupId?: string | null; eventId?: string | null }>(
+  value: T,
+) => !(value.groupId && value.eventId)
+const exclusiveContextError = {
+  error: "Une publication ne peut appartenir qu'à un seul contexte (général, groupe ou événement).",
+  path: ["eventId"] as PropertyKey[],
+}
+
+export const createMessagePostSchema = z
+  .object({
+    groupId: groupIdSchema,
+    eventId: eventIdSchema,
+    body: bodySchema,
+  })
+  .refine(exclusiveContext, exclusiveContextError)
 export type CreateMessagePostInput = z.infer<typeof createMessagePostSchema>
 
-export const createKudosPostSchema = z.object({
-  groupId: groupIdSchema,
-  body: bodySchema,
-  kudosRecipientId: z.string().min(1, { error: "Choisissez un destinataire." }),
-})
+export const createKudosPostSchema = z
+  .object({
+    groupId: groupIdSchema,
+    eventId: eventIdSchema,
+    body: bodySchema,
+    kudosRecipientId: z.string().min(1, { error: "Choisissez un destinataire." }),
+  })
+  .refine(exclusiveContext, exclusiveContextError)
 export type CreateKudosPostInput = z.infer<typeof createKudosPostSchema>
 
-export const createPollPostSchema = z.object({
-  groupId: groupIdSchema,
-  body: bodySchema,
-  options: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1, { error: "Une option ne peut pas être vide." })
-        .max(200, { error: "Une option est trop longue (200 caractères maximum)." }),
-    )
-    .min(2, { error: "Un sondage doit avoir au moins 2 options." })
-    .max(5, { error: "Un sondage ne peut avoir plus de 5 options." }),
-})
+export const createPollPostSchema = z
+  .object({
+    groupId: groupIdSchema,
+    eventId: eventIdSchema,
+    body: bodySchema,
+    options: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1, { error: "Une option ne peut pas être vide." })
+          .max(200, { error: "Une option est trop longue (200 caractères maximum)." }),
+      )
+      .min(2, { error: "Un sondage doit avoir au moins 2 options." })
+      .max(5, { error: "Un sondage ne peut avoir plus de 5 options." }),
+  })
+  .refine(exclusiveContext, exclusiveContextError)
 export type CreatePollPostInput = z.infer<typeof createPollPostSchema>
 
 export const addCommentSchema = z.object({

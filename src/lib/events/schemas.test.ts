@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { createEventSchema } from "@/lib/events/schemas"
+import { createEventSchema, setRsvpSchema } from "@/lib/events/schemas"
 
 describe("createEventSchema", () => {
   it("accepte un événement minimal valide", () => {
@@ -61,5 +61,23 @@ describe("createEventSchema", () => {
     if (result.success) {
       expect(result.data.description).toBeUndefined()
     }
+  })
+})
+
+describe("setRsvpSchema", () => {
+  it("accepte 'going'", () => {
+    expect(setRsvpSchema.safeParse({ eventId: "evt-1", status: "going" }).success).toBe(true)
+  })
+
+  it("accepte 'declined'", () => {
+    expect(setRsvpSchema.safeParse({ eventId: "evt-1", status: "declined" }).success).toBe(true)
+  })
+
+  it("refuse un statut hors de l'ensemble fermé", () => {
+    expect(setRsvpSchema.safeParse({ eventId: "evt-1", status: "maybe" }).success).toBe(false)
+  })
+
+  it("refuse un eventId vide", () => {
+    expect(setRsvpSchema.safeParse({ eventId: "", status: "going" }).success).toBe(false)
   })
 })

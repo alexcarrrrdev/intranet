@@ -5,10 +5,10 @@
  * utilisateur connecté.
  */
 import { randomUUID } from "node:crypto"
-import { asc, desc, eq, gte, lt } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm"
 
 import { db } from "@/db"
-import { event } from "@/db/schema"
+import { event, eventRsvp } from "@/db/schema"
 import { recordAudit, resolveActorLabel } from "@/lib/audit/audit"
 
 export type EventListItem = {
@@ -22,18 +22,62 @@ export type EventListItem = {
   // Date de création de l'événement (distincte de `startsAt`) — utilisée par
   // le tri du fil unifié (/fil), voir src/lib/feed/merge-feed-items.ts.
   createdAt: Date
+  // Nombre de participants ("going") et réponse de l'utilisateur courant —
+  // renseignés uniquement quand `currentUserId` est fourni à
+  // listUpcomingEvents/listPastEvents (voir ci-dessous), sinon `0`/`null`.
+  goingCount: number
+  myRsvp: "going" | "declined" | null
+}
+
+/**
+ * Enrichit une liste d'événements avec le compte de participants et la
+ * réponse de `currentUserId`, en deux requêtes groupées (pas une par
+ * événement) — voir EventListItem.
+ */
+async function withRsvpInfo(
+  rows: Omit<EventListItem, "goingCount" | "myRsvp">[],
+  currentUserId?: string,
+): Promise<EventListItem[]> {
+  if (rows.length === 0) return []
+  const eventIds = rows.map((row) => row.id)
+
+  const [goingRows, myRows] = await Promise.all([
+    db
+      .select({ eventId: eventRsvp.eventId })
+      .from(eventRsvp)
+      .where(and(inArray(eventRsvp.eventId, eventIds), eq(eventRsvp.status, "going"))),
+    currentUserId
+      ? db
+          .select({ eventId: eventRsvp.eventId, status: eventRsvp.status })
+          .from(eventRsvp)
+          .where(and(inArray(eventRsvp.eventId, eventIds), eq(eventRsvp.userId, currentUserId)))
+      : Promise.resolve([]),
+  ])
+
+  const goingCountByEvent = new Map<string, number>()
+  for (const row of goingRows) {
+    goingCountByEvent.set(row.eventId, (goingCountByEvent.get(row.eventId) ?? 0) + 1)
+  }
+  const myRsvpByEvent = new Map(myRows.map((row) => [row.eventId, row.status]))
+
+  return rows.map((row) => ({
+    ...row,
+    goingCount: goingCountByEvent.get(row.id) ?? 0,
+    myRsvp: (myRsvpByEvent.get(row.id) as "going" | "declined" | undefined) ?? null,
+  }))
 }
 
 /**
  * Événements à venir (startsAt >= début de la journée courante), triés du
  * plus proche au plus lointain — voir /calendrier, groupés par mois côté
- * page.
+ * page. `currentUserId` optionnel : renseigne `goingCount`/`myRsvp` de
+ * chaque événement (voir withRsvpInfo).
  */
-export async function listUpcomingEvents(): Promise<EventListItem[]> {
+export async function listUpcomingEvents(currentUserId?: string): Promise<EventListItem[]> {
   const startOfToday = new Date()
   startOfToday.setHours(0, 0, 0, 0)
 
-  return db
+  const rows = await db
     .select({
       id: event.id,
       title: event.title,
@@ -47,6 +91,8 @@ export async function listUpcomingEvents(): Promise<EventListItem[]> {
     .from(event)
     .where(gte(event.startsAt, startOfToday))
     .orderBy(asc(event.startsAt))
+
+  return withRsvpInfo(rows, currentUserId)
 }
 
 /**
@@ -54,11 +100,11 @@ export async function listUpcomingEvents(): Promise<EventListItem[]> {
  * récents en premier — section repliée « Événements passés » de
  * /calendrier.
  */
-export async function listPastEvents(): Promise<EventListItem[]> {
+export async function listPastEvents(currentUserId?: string): Promise<EventListItem[]> {
   const startOfToday = new Date()
   startOfToday.setHours(0, 0, 0, 0)
 
-  return db
+  const rows = await db
     .select({
       id: event.id,
       title: event.title,
@@ -72,6 +118,36 @@ export async function listPastEvents(): Promise<EventListItem[]> {
     .from(event)
     .where(lt(event.startsAt, startOfToday))
     .orderBy(desc(event.startsAt))
+
+  return withRsvpInfo(rows, currentUserId)
+}
+
+export type EventDetail = EventListItem
+
+/** Détail d'un événement pour /fil?evenement=…, ou `null` si introuvable. */
+export async function getEventDetail(
+  eventId: string,
+  currentUserId: string,
+): Promise<EventDetail | null> {
+  const [row] = await db
+    .select({
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      allDay: event.allDay,
+      createdAt: event.createdAt,
+    })
+    .from(event)
+    .where(eq(event.id, eventId))
+    .limit(1)
+
+  if (!row) return null
+
+  const [enriched] = await withRsvpInfo([row], currentUserId)
+  return enriched
 }
 
 export async function createEvent(params: {
