@@ -319,6 +319,13 @@ export async function loadMoreFeedPostsAction(params: {
   const session = await requireSession()
   if (!session) return { posts: [], error: "Vous devez être connecté." }
 
+  // Groupes privés : la lecture du fil d'un groupe est réservée à ses
+  // membres (même règle que la page /fil?groupe=…, revérifiée ici car le
+  // scope arrive du client).
+  if (params.scope.type === "group" && !(await isGroupMember(params.scope.id, session.user.id))) {
+    return { posts: [], error: "Vous devez être membre de ce groupe pour voir ses publications." }
+  }
+
   const posts = await listFeedPosts({
     scope: params.scope,
     currentUserId: session.user.id,
@@ -336,6 +343,14 @@ export async function loadPostCommentsAction(
 ): Promise<{ comments: FeedComment[]; error?: string }> {
   const session = await requireSession()
   if (!session) return { comments: [], error: "Vous devez être connecté." }
+
+  // Groupes privés : les commentaires d'un post de groupe ne sont lisibles
+  // que par les membres du groupe (l'identifiant de post arrive du client).
+  const ownership = await getPostOwnership(postId)
+  if (!ownership) return { comments: [], error: "Cette publication n'existe plus." }
+  if (ownership.groupId && !(await isGroupMember(ownership.groupId, session.user.id))) {
+    return { comments: [], error: "Vous devez être membre de ce groupe pour voir ses publications." }
+  }
 
   const comments = await listPostComments(postId)
   return { comments }

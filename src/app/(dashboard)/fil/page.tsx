@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation"
 
+import { LockIcon } from "lucide-react"
+
 import { hasPermission } from "@/lib/auth/permissions"
 import { getCurrentSession } from "@/lib/auth/session"
 import { listUsers } from "@/lib/auth/users"
@@ -55,14 +57,21 @@ export default async function FilPage({ searchParams }: FilPageProps) {
 
   const canManageAnnouncements = await hasPermission(session.user, "announcement", "manage")
 
+  // Groupes privés : un non-membre voit l'en-tête du groupe (nom,
+  // description, bouton Rejoindre) mais pas ses publications. Même règle
+  // appliquée dans les actions de lecture (voir src/app/actions/feed.ts).
+  const canReadScope = scope.type !== "group" || (groupDetail?.isMember ?? false)
+
   const [posts, announcements, upcomingEvents, groups, users, canDeleteAny, canManageGroups, canManageEvents] =
     await Promise.all([
-      listFeedPosts({
-        scope,
-        currentUserId: session.user.id,
-        limit: FEED_PAGE_SIZE,
-        offset: 0,
-      }),
+      canReadScope
+        ? listFeedPosts({
+            scope,
+            currentUserId: session.user.id,
+            limit: FEED_PAGE_SIZE,
+            offset: 0,
+          })
+        : Promise.resolve([]),
       listAnnouncements({ currentUserId: session.user.id, includeReadStats: canManageAnnouncements }),
       listUpcomingEvents(session.user.id),
       listGroups(session.user.id),
@@ -105,11 +114,7 @@ export default async function FilPage({ searchParams }: FilPageProps) {
           <EventDetailHeader event={eventDetail} canManage={canManageEvents} />
         )}
 
-        {scope.type === "group" && groupDetail && !groupDetail.isMember ? (
-          <p className="text-center text-sm text-muted-foreground">
-            Rejoignez ce groupe pour y publier.
-          </p>
-        ) : (
+        {canReadScope && (
           <FeedComposer
             groupId={scope.type === "group" ? scope.id : null}
             eventId={scope.type === "event" ? scope.id : null}
@@ -118,7 +123,15 @@ export default async function FilPage({ searchParams }: FilPageProps) {
           />
         )}
 
-        {scope.type === "general" ? (
+        {!canReadScope ? (
+          <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed py-10 text-center">
+            <LockIcon className="size-5 text-muted-foreground" />
+            <p className="text-sm font-medium">Groupe privé</p>
+            <p className="text-sm text-muted-foreground">
+              Rejoignez ce groupe pour voir ses publications et y participer.
+            </p>
+          </div>
+        ) : scope.type === "general" ? (
           <UnifiedFeed
             initialItems={mergeFeedItems({
               posts,
